@@ -1,4 +1,27 @@
-*.class
+# .
+/eclipse-build
+/classes
+**/build
+/idea-build
+**/dist
+**/lib
+/*~
+/velocity.log
+/build.properties
+/.idea
+**/*.iml
+**/*.ipr
+**/*.iws
+/.project
+/.classpath
+/.settings
+/.caches
+/prj.el
+/bin
+/bin.*
+**/pom.xml
+/nbproject
+/nb-build
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
