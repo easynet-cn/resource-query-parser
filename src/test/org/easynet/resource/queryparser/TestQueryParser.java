@@ -561,7 +561,8 @@ public class TestQueryParser extends QueryParserTestBase {
 
 		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\"");
 
-		assertEquals(exceptedQueryTexts, qp.getQueryTextStore().get());
+		assertEquals(exceptedQueryTexts, qp.getFieldQueryTextStore()
+				.getQueryTexts());
 	}
 
 	@Test
@@ -574,15 +575,15 @@ public class TestQueryParser extends QueryParserTestBase {
 		exceptedQueryTexts.add("test case");
 		exceptedQueryTexts.add("reference");
 
-		QueryStore<String> queryTextStore = new QueryTextStore();
+		FieldQueryTextStore fieldQueryTextStore = new QueryParserFieldQueryTextStore();
 		QueryStore<String> referenceStore = new ReferenceStore();
 
 		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
 				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
-		qp.setQueryTextStore(queryTextStore);
+		qp.setFieldQueryTextStore(fieldQueryTextStore);
 
 		SimpleReferenceQueryProvider referenceQueryProvider = new SimpleReferenceQueryProvider(
-				queryTextStore, referenceStore);
+				fieldQueryTextStore, referenceStore);
 
 		referenceQueryProvider.addQuery("ti=reference");
 
@@ -590,17 +591,19 @@ public class TestQueryParser extends QueryParserTestBase {
 
 		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\" and #1");
 
-		assertEquals(exceptedQueryTexts, qp.getQueryTextStore().get());
+		assertEquals(exceptedQueryTexts, qp.getFieldQueryTextStore()
+				.getQueryTexts());
 	}
 
 	public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 		List<String> queries = new ArrayList<String>();
-		QueryStore<String> queryTextStore = null;
+		FieldQueryTextStore fieldQueryTextStore = null;
 		QueryStore<String> referenceStore = null;
 
-		public SimpleReferenceQueryProvider(QueryStore<String> queryTextStore,
+		public SimpleReferenceQueryProvider(
+				FieldQueryTextStore fieldQueryTextStore,
 				QueryStore<String> referenceStore) {
-			this.queryTextStore = queryTextStore;
+			this.fieldQueryTextStore = fieldQueryTextStore;
 			this.referenceStore = referenceStore;
 		}
 
@@ -613,7 +616,7 @@ public class TestQueryParser extends QueryParserTestBase {
 			QueryParser queryPaser = new QueryParser(TEST_VERSION_CURRENT,
 					"all", new MockAnalyzer(random(), MockTokenizer.SIMPLE,
 							false));
-			queryPaser.setQueryTextStore(queryTextStore);
+			queryPaser.setFieldQueryTextStore(fieldQueryTextStore);
 			queryPaser.setReferenceStore(referenceStore);
 			queryPaser.setReferenceQueryProvider(this);
 
@@ -634,14 +637,14 @@ public class TestQueryParser extends QueryParserTestBase {
 
 	@Test
 	public void testReferenceQuery() throws Exception {
-		QueryStore<String> queryTextStore = new QueryTextStore();
+		FieldQueryTextStore fieldQueryTextStore = new QueryParserFieldQueryTextStore();
 		QueryStore<String> referenceStore = new ReferenceStore();
 		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
 				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
 		qp.setReferenceStore(referenceStore);
 
 		SimpleReferenceQueryProvider referenceQueryProvider = new SimpleReferenceQueryProvider(
-				queryTextStore, referenceStore);
+				fieldQueryTextStore, referenceStore);
 
 		referenceQueryProvider.addQuery("ti=reference");
 		referenceQueryProvider.addQuery("i=test or #1");

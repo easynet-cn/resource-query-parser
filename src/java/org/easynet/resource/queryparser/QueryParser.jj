@@ -289,6 +289,7 @@ Query Term(String field) : {
   	 (
   	 term=<POUND_SIGN>
   	 ){
+  	 	if(isReferenceQuery == false) isReferenceQuery = true;
   	 	referenceStore.add(term.image);
   	 	q = referenceQueryProvider.getQuery(term);
   	 }

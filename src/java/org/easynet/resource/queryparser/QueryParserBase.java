@@ -95,11 +95,13 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	Map<String, String> fieldMap = null;
 
-	QueryStore<String> queryTextStore = null;
+	FieldQueryTextStore fieldQueryTextStore = null;
 
 	QueryStore<String> referenceStore = null;
 
 	ReferenceQueryProvider referenceQueryProvider = null;
+
+	boolean isReferenceQuery = false;
 
 	// So the generated QueryParser(CharStream) won't error out
 	protected QueryParserBase() {
@@ -127,7 +129,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 
 		BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE);
-		queryTextStore = new QueryTextStore();
+		fieldQueryTextStore = new QueryParserFieldQueryTextStore();
 		referenceStore = new ReferenceStore();
 	}
 
@@ -467,12 +469,12 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 	}
 
-	public QueryStore<String> getQueryTextStore() {
-		return queryTextStore;
+	public FieldQueryTextStore getFieldQueryTextStore() {
+		return fieldQueryTextStore;
 	}
 
-	public void setQueryTextStore(QueryStore<String> queryTextStore) {
-		this.queryTextStore = queryTextStore;
+	public void setFieldQueryTextStore(FieldQueryTextStore fieldQueryTextStore) {
+		this.fieldQueryTextStore = fieldQueryTextStore;
 	}
 
 	public QueryStore<String> getReferenceStore() {
@@ -490,6 +492,10 @@ public abstract class QueryParserBase extends QueryBuilder {
 	public void setReferenceQueryProvider(
 			ReferenceQueryProvider referenceQueryProvider) {
 		this.referenceQueryProvider = referenceQueryProvider;
+	}
+
+	public boolean getIsReferecneQuery() {
+		return isReferenceQuery;
 	}
 
 	protected void addClause(List<BooleanClause> clauses, int conj, int mods,
@@ -999,7 +1005,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 
 		if (!queryText.isEmpty()) {
-			queryTextStore.add(queryText);
+			fieldQueryTextStore.add(qfield, queryText);
 		}
 		return q;
 	}
@@ -1035,7 +1041,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 		String queryText = discardEscapeChar(term.image.substring(1,
 				term.image.length() - 1));
-		queryTextStore.add(queryText);
+		fieldQueryTextStore.add(qfield, queryText);
 		return getFieldQuery(qfield, queryText, s);
 	}
 

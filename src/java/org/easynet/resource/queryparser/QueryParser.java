@@ -304,7 +304,8 @@ field="*";
     switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
     case POUND_SIGN:{
       term = jj_consume_token(POUND_SIGN);
-referenceStore.add(term.image);
+if(isReferenceQuery == false) isReferenceQuery = true;
+                referenceStore.add(term.image);
                 q = referenceQueryProvider.getQuery(term);
       break;
       }
