@@ -621,9 +621,17 @@ public class TestQueryParser extends QueryParserTestBase {
 		exceptedReference.add("#3");
 
 		System.out.println(qp.parse("#1 and #2 and #3"));
+
+		assertEquals(true, qp.getIsReferecneQuery());
+
 		System.out.print(referenceQueryProvider
 				.getRealQuery("#1 and #2 and #3"));
 
+		String exceptedRealQuery = "ti=reference and i=test or ti=reference and ti=reference and i=test or ti=reference";
+
 		assertEquals(exceptedReference, referenceStore.get());
+		assertEquals(exceptedRealQuery,
+				referenceQueryProvider.getRealQuery("#1 and #2 and #3"));
+
 	}
 }

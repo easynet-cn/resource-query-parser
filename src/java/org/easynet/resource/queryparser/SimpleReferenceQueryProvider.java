@@ -12,7 +12,7 @@ import org.apache.lucene.util.Version;
 
 public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 	List<String> queries = new ArrayList<String>();
-	Pattern pattern = Pattern.compile("#[/d]+");
+	Pattern pattern = Pattern.compile("#[\\d]+");
 
 	Analyzer analyzer = null;
 	FieldQueryTextStore fieldQueryTextStore = null;
@@ -69,11 +69,11 @@ public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 			StringBuffer sb = new StringBuffer();
 
 			while (m.find()) {
-				String ref = m.group(1);
+				String ref = m.group(0);
 
 				m.appendReplacement(sb, Matcher
 						.quoteReplacement(getRealQuery(queries.get(Integer
-								.parseInt(ref.substring(1))))));
+								.parseInt(ref.substring(1)) - 1))));
 			}
 
 			return sb.toString();
