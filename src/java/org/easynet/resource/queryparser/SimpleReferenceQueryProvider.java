@@ -56,8 +56,8 @@ public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 	}
 
 	@Override
-	public Collection<String> getQueries() {
-		return queries;
+	public String[] getQueries() {
+		return (String[]) queries.toArray(new String[0]);
 	}
 
 	@Override
