@@ -55,12 +55,10 @@ public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 		return null;
 	}
 
-	@Override
 	public String[] getQueries() {
 		return (String[]) queries.toArray(new String[0]);
 	}
 
-	@Override
 	public String getRealQuery(String query) {
 		if (isReferenceQuery(query) == false || queries.isEmpty()) {
 			return query;
