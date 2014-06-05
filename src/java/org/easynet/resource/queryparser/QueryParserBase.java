@@ -455,18 +455,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	public void setFieldMap(Map<String, String> fieldMap) {
 		this.fieldMap = fieldMap;
-
-		if (null != fieldMap && checkField && null != fields) {
-			Iterator<Map.Entry<String, String>> iterator = fieldMap.entrySet()
-					.iterator();
-
-			while (iterator.hasNext()) {
-				Map.Entry<String, String> entry = iterator.next();
-
-				fields.add(entry.getKey().toLowerCase());
-				fields.add(entry.getValue().toLowerCase());
-			}
-		}
 	}
 
 	public FieldQueryTextStore getFieldQueryTextStore() {
