@@ -557,11 +557,13 @@ public class TestQueryParser extends QueryParserTestBase {
 		exceptedQueryTexts.add("cn");
 		exceptedQueryTexts.add("中国");
 		exceptedQueryTexts.add("test case");
+		exceptedQueryTexts.add("2013");
+		exceptedQueryTexts.add("2014");
 
 		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
 				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
 
-		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\"");
+		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\" and pd=[2013 to 2014]");
 
 		assertEquals(exceptedQueryTexts, qp.getFieldQueryTextStore()
 				.getQueryTexts());
