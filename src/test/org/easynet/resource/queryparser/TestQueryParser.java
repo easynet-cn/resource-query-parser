@@ -524,6 +524,8 @@ public class TestQueryParser extends QueryParserTestBase {
 
 		fields.add("ti");
 		fields.add("ab");
+		fields.add("名称");
+		fields.add("摘要");
 
 		qp.setFields(fields);
 
