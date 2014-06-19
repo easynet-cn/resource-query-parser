@@ -1058,7 +1058,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	void fieldCheck(Token fieldToken) throws ParseException {
-		if (checkField && null != fields && !fields.contains(fieldToken.image)) {
+		if (checkField && null != fields
+				&& !fields.contains(fieldToken.image.toLowerCase())) {
 			throw new MissingFieldException(fieldToken, fieldToken.image);
 		}
 	}
