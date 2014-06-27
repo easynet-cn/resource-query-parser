@@ -154,11 +154,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 			Query res = TopLevelQuery(field);
 			return res != null ? res : newBooleanQuery(false);
 		} catch (MissingFieldException tme) {
-			MissingFieldException e = new MissingFieldException(
-					"Cannot parse '" + query + "': missing field '"
-							+ tme.getField() + "'");
-			e.initCause(tme);
-			throw e;
+			throw tme;
 		} catch (ParseException tme) {
 			// rethrow to include the original query:
 			ParseException e = new ParseException("Cannot parse '" + query
