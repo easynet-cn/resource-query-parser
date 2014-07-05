@@ -30,15 +30,4 @@ public class QueryParserFieldQueryTextStore implements FieldQueryTextStore {
 		return store.get(field);
 	}
 
-	@Override
-	public Set<String> getQueryTexts() {
-		Set<String> queryTexts = new LinkedHashSet<String>();
-
-		for (Set<String> set : store.values()) {
-			queryTexts.addAll(set);
-		}
-
-		return queryTexts;
-	}
-
 }

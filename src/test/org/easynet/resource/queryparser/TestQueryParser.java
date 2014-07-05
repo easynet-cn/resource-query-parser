@@ -550,57 +550,6 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	@Test
-	public void testQuryTexts() throws Exception {
-		Set<String> exceptedQueryTexts = new LinkedHashSet<String>();
-
-		exceptedQueryTexts.add("测试");
-		exceptedQueryTexts.add("cn");
-		exceptedQueryTexts.add("中国");
-		exceptedQueryTexts.add("test case");
-		exceptedQueryTexts.add("2013");
-		exceptedQueryTexts.add("2014");
-
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
-				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
-
-		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\" and pd=[2013 to 2014]");
-
-		assertEquals(exceptedQueryTexts, qp.getFieldQueryTextStore()
-				.getQueryTexts());
-	}
-
-	@Test
-	public void testQueryTextsWithReferenceQuery() throws Exception {
-		Set<String> exceptedQueryTexts = new LinkedHashSet<String>();
-
-		exceptedQueryTexts.add("测试");
-		exceptedQueryTexts.add("cn");
-		exceptedQueryTexts.add("中国");
-		exceptedQueryTexts.add("test case");
-		exceptedQueryTexts.add("reference");
-
-		FieldQueryTextStore fieldQueryTextStore = new QueryParserFieldQueryTextStore();
-		QueryStore<String> referenceStore = new ReferenceStore();
-
-		Analyzer analyzer = new MockAnalyzer(random(), MockTokenizer.SIMPLE,
-				false);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all", analyzer);
-		qp.setFieldQueryTextStore(fieldQueryTextStore);
-
-		SimpleReferenceQueryProvider referenceQueryProvider = new SimpleReferenceQueryProvider(
-				analyzer, fieldQueryTextStore, referenceStore);
-
-		referenceQueryProvider.addQuery("ti=reference");
-
-		qp.setReferenceQueryProvider(referenceQueryProvider);
-
-		qp.parse("ti=测试 and ab=测试 OR co=(cn OR 中国^2) ti=\"test case\" and #1");
-
-		assertEquals(exceptedQueryTexts, qp.getFieldQueryTextStore()
-				.getQueryTexts());
-	}
-
-	@Test
 	public void testReferenceQuery() throws Exception {
 		Analyzer analyzer = new MockAnalyzer(random(), MockTokenizer.SIMPLE,
 				false);

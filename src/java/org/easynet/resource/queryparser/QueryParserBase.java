@@ -618,8 +618,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		} catch (Exception e) {
 		}
 
-		fieldQueryTextStore.add(field, part1);
-		fieldQueryTextStore.add(field, part2);
+		fieldQueryTextStore.add(field, "[" + part1 + " to " + part2 + "]");
 
 		return newRangeQuery(field, part1, part2, startInclusive, endInclusive);
 	}

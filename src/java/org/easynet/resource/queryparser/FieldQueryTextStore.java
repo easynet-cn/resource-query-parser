@@ -9,6 +9,4 @@ public interface FieldQueryTextStore {
 	public Map<String, Set<String>> get();
 
 	public Set<String> getFiedQueryText(String field);
-
-	public Set<String> getQueryTexts();
 }
