@@ -35,7 +35,7 @@ import org.apache.lucene.document.DateTools;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanClause.Occur;
-import org.apache.lucene.util.automaton.BasicAutomata;
+import org.apache.lucene.util.automaton.Automata;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
 import org.apache.lucene.util.Version;
@@ -48,7 +48,7 @@ import org.junit.*;
 // to the core QP and subclass/use the parts that are not in the flexible QP
 public abstract class QueryParserTestBase extends Assert {
 
-	static Version TEST_VERSION_CURRENT = Version.LUCENE_47;
+	static Version TEST_VERSION_CURRENT = Version.LUCENE_4_10_1;
 	static boolean VERBOSE = true;
 
 	public static Analyzer qpAnalyzer;
@@ -850,7 +850,7 @@ public abstract class QueryParserTestBase extends Assert {
 
 	public void testBoost() throws Exception {
 		CharacterRunAutomaton stopWords = new CharacterRunAutomaton(
-				BasicAutomata.makeString("on"));
+				Automata.makeString("on"));
 		Analyzer oneStopAnalyzer = new MockAnalyzer(random(),
 				MockTokenizer.SIMPLE, true, stopWords);
 		QueryParser qp = getParserConfig(oneStopAnalyzer);

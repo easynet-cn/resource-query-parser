@@ -35,7 +35,7 @@ public class SimpleReferenceQueryProvider implements ReferenceQueryProvider {
 
 	@Override
 	public Query getQuery(Token token) {
-		QueryParser queryPaser = new QueryParser(Version.LUCENE_48, null,
+		QueryParser queryPaser = new QueryParser(Version.LUCENE_4_10_1, null,
 				analyzer);
 		queryPaser.setFieldQueryTextStore(fieldQueryTextStore);
 		queryPaser.setReferenceStore(referenceStore);

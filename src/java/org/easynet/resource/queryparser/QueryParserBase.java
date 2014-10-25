@@ -122,7 +122,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	public void init(Version matchVersion, String f, Analyzer a) {
 		setAnalyzer(a);
 		field = f;
-		if (matchVersion.onOrAfter(Version.LUCENE_47)) {
+		if (matchVersion.onOrAfter(Version.LUCENE_4_10_1)) {
 			setAutoGeneratePhraseQueries(false);
 		} else {
 			setAutoGeneratePhraseQueries(true);
