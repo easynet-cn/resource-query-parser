@@ -967,9 +967,9 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	Query handleBareTokenQuery(String qfield, Token term, Token fuzzySlop,
-			boolean prefix, boolean wildcard, boolean fuzzy, boolean regexp)
-			throws ParseException {
+	protected Query handleBareTokenQuery(String qfield, Token term,
+			Token fuzzySlop, boolean prefix, boolean wildcard, boolean fuzzy,
+			boolean regexp) throws ParseException {
 		Query q;
 
 		String termImage = discardEscapeChar(term.image);
@@ -996,8 +996,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return q;
 	}
 
-	Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage)
-			throws ParseException {
+	protected Query handleBareFuzzy(String qfield, Token fuzzySlop,
+			String termImage) throws ParseException {
 		Query q;
 		float fms = fuzzyMinSim;
 		try {
@@ -1016,7 +1016,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop)
+	protected Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop)
 			throws ParseException {
 		int s = phraseSlop; // default
 		if (fuzzySlop != null) {
@@ -1032,7 +1032,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	Query handleBoost(Query q, Token boost) {
+	protected Query handleBoost(Query q, Token boost) {
 		if (boost != null) {
 			float f = (float) 1.0;
 			try {
