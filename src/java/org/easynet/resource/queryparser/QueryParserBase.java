@@ -461,6 +461,10 @@ public abstract class QueryParserBase extends QueryBuilder {
 		this.fieldQueryTextStore = fieldQueryTextStore;
 	}
 
+	public void addFieldQueryTextStore(String field, String queryText) {
+		this.fieldQueryTextStore.add(field, queryText);;
+	}
+
 	public QueryStore<String> getReferenceStore() {
 		return referenceStore;
 	}
