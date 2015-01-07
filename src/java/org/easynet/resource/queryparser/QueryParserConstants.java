@@ -47,33 +47,31 @@ public interface QueryParserConstants {
   /** RegularExpression Id. */
   int QUOTED = 19;
   /** RegularExpression Id. */
-  int POUND_SIGN = 20;
+  int TERM = 20;
   /** RegularExpression Id. */
-  int TERM = 21;
+  int FUZZY_SLOP = 21;
   /** RegularExpression Id. */
-  int FUZZY_SLOP = 22;
+  int PREFIXTERM = 22;
   /** RegularExpression Id. */
-  int PREFIXTERM = 23;
+  int WILDTERM = 23;
   /** RegularExpression Id. */
-  int WILDTERM = 24;
+  int REGEXPTERM = 24;
   /** RegularExpression Id. */
-  int REGEXPTERM = 25;
+  int RANGEIN_START = 25;
   /** RegularExpression Id. */
-  int RANGEIN_START = 26;
+  int RANGEEX_START = 26;
   /** RegularExpression Id. */
-  int RANGEEX_START = 27;
+  int NUMBER = 27;
   /** RegularExpression Id. */
-  int NUMBER = 28;
+  int RANGE_TO = 28;
   /** RegularExpression Id. */
-  int RANGE_TO = 29;
+  int RANGEIN_END = 29;
   /** RegularExpression Id. */
-  int RANGEIN_END = 30;
+  int RANGEEX_END = 30;
   /** RegularExpression Id. */
-  int RANGEEX_END = 31;
+  int RANGE_QUOTED = 31;
   /** RegularExpression Id. */
-  int RANGE_QUOTED = 32;
-  /** RegularExpression Id. */
-  int RANGE_GOOP = 33;
+  int RANGE_GOOP = 32;
 
   /** Lexical state. */
   int Boost = 0;
@@ -104,7 +102,6 @@ public interface QueryParserConstants {
     "\"*\"",
     "\"^\"",
     "<QUOTED>",
-    "<POUND_SIGN>",
     "<TERM>",
     "<FUZZY_SLOP>",
     "<PREFIXTERM>",
