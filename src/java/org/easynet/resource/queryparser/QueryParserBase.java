@@ -89,19 +89,11 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	boolean autoGeneratePhraseQueries;
 
-	boolean checkField = false;
-
 	Set<String> fields = null;
 
 	Map<String, String> fieldMap = null;
 
 	FieldQueryTextStore fieldQueryTextStore = null;
-
-	QueryStore<String> referenceStore = null;
-
-	ReferenceQueryProvider referenceQueryProvider = null;
-
-	boolean isReferenceQuery = false;
 
 	// So the generated QueryParser(CharStream) won't error out
 	protected QueryParserBase() {
@@ -119,18 +111,14 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @param a
 	 *            used to find terms in the query text.
 	 */
-	public void init(Version matchVersion, String f, Analyzer a) {
+	public void init(String f, Analyzer a) {
 		setAnalyzer(a);
 		field = f;
-		if (matchVersion.onOrAfter(Version.LUCENE_4_10_1)) {
-			setAutoGeneratePhraseQueries(false);
-		} else {
-			setAutoGeneratePhraseQueries(true);
-		}
+
+		setAutoGeneratePhraseQueries(false);
 
 		BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE);
 		fieldQueryTextStore = new QueryParserFieldQueryTextStore();
-		referenceStore = new ReferenceStore();
 	}
 
 	// the generated parser will create these in QueryParser
@@ -433,14 +421,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return analyzeRangeTerms;
 	}
 
-	public void setCheckField(boolean checkField) {
-		this.checkField = checkField;
-	}
-
-	public boolean getCheckField() {
-		return checkField;
-	}
-
 	public void setFields(Set<String> fields) {
 		this.fields = fields;
 	}
@@ -459,27 +439,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	public void setFieldQueryTextStore(FieldQueryTextStore fieldQueryTextStore) {
 		this.fieldQueryTextStore = fieldQueryTextStore;
-	}
-
-	public QueryStore<String> getReferenceStore() {
-		return referenceStore;
-	}
-
-	public void setReferenceStore(QueryStore<String> referenceStore) {
-		this.referenceStore = referenceStore;
-	}
-
-	public ReferenceQueryProvider getReferenceQueryProvide() {
-		return referenceQueryProvider;
-	}
-
-	public void setReferenceQueryProvider(
-			ReferenceQueryProvider referenceQueryProvider) {
-		this.referenceQueryProvider = referenceQueryProvider;
-	}
-
-	public boolean getIsReferecneQuery() {
-		return isReferenceQuery;
 	}
 
 	protected void addClause(List<BooleanClause> clauses, int conj, int mods,
@@ -1052,15 +1011,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return q;
 	}
 
-	void fieldCheck(Token fieldToken) throws ParseException {
-		if (checkField && null != fields
-				&& !fields.contains(fieldToken.image.toLowerCase())) {
-			throw new MissingFieldException(fieldToken, fieldToken.image);
-		}
-	}
-
-	String getField(String fieldVal) {
-		String f = fieldVal.toLowerCase();
+	String getField(Token field) {
+		String f = field.image.toLowerCase();
 
 		if (null != fieldMap && fieldMap.containsKey(f)) {
 			return fieldMap.get(f);

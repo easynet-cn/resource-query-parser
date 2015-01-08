@@ -52,7 +52,7 @@ public class TestQueryParser extends QueryParserTestBase {
 
 	public static class QPTestParser extends QueryParser {
 		public QPTestParser(String f, Analyzer a) {
-			super(TEST_VERSION_CURRENT, f, a);
+			super(f, a);
 		}
 
 		@Override
@@ -71,8 +71,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	public QueryParser getParser(Analyzer a) throws Exception {
 		if (a == null)
 			a = new MockAnalyzer(random(), MockTokenizer.SIMPLE, true);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT,
-				getDefaultField(), a);
+		QueryParser qp = new QueryParser(getDefaultField(), a);
 		qp.setDefaultOperator(QueryParserBase.OR_OPERATOR);
 		return qp;
 	}
@@ -145,8 +144,8 @@ public class TestQueryParser extends QueryParserTestBase {
 	@Test
 	public void testStarParsing() throws Exception {
 		final int[] type = new int[1];
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false)) {
+		QueryParser qp = new QueryParser("field", new MockAnalyzer(random(),
+				MockTokenizer.WHITESPACE, false)) {
 			@Override
 			protected Query getWildcardQuery(String field, String termStr) {
 				// override error checking of superclass
@@ -235,7 +234,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		Analyzer morePrecise = new Analyzer2();
 
 		public SmartQueryParser() {
-			super(TEST_VERSION_CURRENT, "field", new Analyzer1());
+			super("field", new Analyzer1());
 		}
 
 		@Override
@@ -252,8 +251,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	@Test
 	public void testNewFieldQuery() throws Exception {
 		/** ordinary behavior, synonyms form uncoordinated boolean query */
-		QueryParser dumb = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new Analyzer1());
+		QueryParser dumb = new QueryParser("field", new Analyzer1());
 		BooleanQuery expanded = new BooleanQuery(true);
 		expanded.add(new TermQuery(new Term("field", "dogs")),
 				BooleanClause.Occur.SHOULD);
@@ -295,8 +293,7 @@ public class TestQueryParser extends QueryParserTestBase {
 				BooleanClause.Occur.SHOULD);
 		expected.add(new TermQuery(new Term("field", "dog")),
 				BooleanClause.Occur.SHOULD);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockSynonymAnalyzer());
 		assertEquals(expected, qp.parse("dogs"));
 		assertEquals(expected, qp.parse("\"dogs\""));
 		qp.setDefaultOperator(Operator.AND);
@@ -314,8 +311,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		expected.add(new Term("field", "old"));
 		expected.add(new Term[] { new Term("field", "dogs"),
 				new Term("field", "dog") });
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockSynonymAnalyzer());
 		assertEquals(expected, qp.parse("\"old dogs\""));
 		qp.setDefaultOperator(Operator.AND);
 		assertEquals(expected, qp.parse("\"old dogs\""));
@@ -374,8 +370,7 @@ public class TestQueryParser extends QueryParserTestBase {
 				BooleanClause.Occur.SHOULD);
 		expected.add(new TermQuery(new Term("field", "國")),
 				BooleanClause.Occur.SHOULD);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		assertEquals(expected, qp.parse("国"));
 		qp.setDefaultOperator(Operator.AND);
 		assertEquals(expected, qp.parse("国"));
@@ -395,8 +390,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		inner.add(new TermQuery(new Term("field", "國")),
 				BooleanClause.Occur.SHOULD);
 		expected.add(inner, BooleanClause.Occur.SHOULD);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		assertEquals(expected, qp.parse("中国"));
 		expected.setBoost(2.0f);
 		assertEquals(expected, qp.parse("中国^2"));
@@ -420,8 +414,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		inner2.add(new TermQuery(new Term("field", "國")),
 				BooleanClause.Occur.SHOULD);
 		expected.add(inner2, BooleanClause.Occur.SHOULD);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		assertEquals(expected, qp.parse("中国国"));
 		expected.setBoost(2.0f);
 		assertEquals(expected, qp.parse("中国国^2"));
@@ -439,8 +432,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		inner.add(new TermQuery(new Term("field", "國")),
 				BooleanClause.Occur.SHOULD);
 		expected.add(inner, BooleanClause.Occur.MUST);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		qp.setDefaultOperator(Operator.AND);
 		assertEquals(expected, qp.parse("中国"));
 		expected.setBoost(2.0f);
@@ -465,8 +457,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		inner2.add(new TermQuery(new Term("field", "國")),
 				BooleanClause.Occur.SHOULD);
 		expected.add(inner2, BooleanClause.Occur.MUST);
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		qp.setDefaultOperator(Operator.AND);
 		assertEquals(expected, qp.parse("中国国"));
 		expected.setBoost(2.0f);
@@ -480,8 +471,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		expected.add(new Term("field", "中"));
 		expected.add(new Term[] { new Term("field", "国"),
 				new Term("field", "國") });
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "field",
-				new MockCJKSynonymAnalyzer());
+		QueryParser qp = new QueryParser("field", new MockCJKSynonymAnalyzer());
 		qp.setDefaultOperator(Operator.AND);
 		assertEquals(expected, qp.parse("\"中国\""));
 		expected.setBoost(2.0f);
@@ -493,32 +483,15 @@ public class TestQueryParser extends QueryParserTestBase {
 	@Test
 	public void testIPCPrefixQuery() throws Exception {
 		PrefixQuery expected = new PrefixQuery(new Term("ic", "g06f1/"));
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "ic",
-				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
+		QueryParser qp = new QueryParser("ic", new MockAnalyzer(random(),
+				MockTokenizer.SIMPLE, false));
 		assertEquals(expected, qp.parse("g06f1/*"));
-	}
-
-	@Test(expected = MissingFieldException.class)
-	public void testCheckField() throws ParseException {
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
-				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
-		qp.setCheckField(true);
-
-		Set<String> fields = new HashSet<String>();
-
-		fields.add("ti");
-
-		qp.setFields(fields);
-
-		qp.parse("ab=test");
 	}
 
 	@Test
 	public void testFieldMap() throws Exception {
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all",
-				new MockAnalyzer(random(), MockTokenizer.SIMPLE, false));
-
-		qp.setCheckField(true);
+		QueryParser qp = new QueryParser("all", new MockAnalyzer(random(),
+				MockTokenizer.SIMPLE, false));
 
 		Set<String> fields = new HashSet<String>();
 
@@ -546,45 +519,6 @@ public class TestQueryParser extends QueryParserTestBase {
 		assertEquals(exceptedFields, qp.getFields());
 
 		assertEquals(qp.parse("ti=测试 and ab=测试"), qp.parse("名称=测试 and 摘要=测试"));
-
-	}
-
-	@Test
-	public void testReferenceQuery() throws Exception {
-		Analyzer analyzer = new MockAnalyzer(random(), MockTokenizer.SIMPLE,
-				false);
-		FieldQueryTextStore fieldQueryTextStore = new QueryParserFieldQueryTextStore();
-		QueryStore<String> referenceStore = new ReferenceStore();
-		QueryParser qp = new QueryParser(TEST_VERSION_CURRENT, "all", analyzer);
-		qp.setReferenceStore(referenceStore);
-
-		SimpleReferenceQueryProvider referenceQueryProvider = new SimpleReferenceQueryProvider(
-				analyzer, fieldQueryTextStore, referenceStore);
-
-		referenceQueryProvider.addQuery("ti=reference");
-		referenceQueryProvider.addQuery("i=test or #1");
-		referenceQueryProvider.addQuery("#1 and #2");
-
-		qp.setReferenceQueryProvider(referenceQueryProvider);
-
-		Set<String> exceptedReference = new LinkedHashSet<String>();
-
-		exceptedReference.add("#1");
-		exceptedReference.add("#2");
-		exceptedReference.add("#3");
-
-		System.out.println(qp.parse("#1 and #2 and #3"));
-
-		assertEquals(true, qp.getIsReferecneQuery());
-
-		System.out.print(referenceQueryProvider
-				.getRealQuery("#1 and #2 and #3"));
-
-		String exceptedRealQuery = "ti=reference and i=test or ti=reference and ti=reference and i=test or ti=reference";
-
-		assertEquals(exceptedReference, referenceStore.get());
-		assertEquals(exceptedRealQuery,
-				referenceQueryProvider.getRealQuery("#1 and #2 and #3"));
 
 	}
 }
