@@ -487,38 +487,4 @@ public class TestQueryParser extends QueryParserTestBase {
 				MockTokenizer.SIMPLE, false));
 		assertEquals(expected, qp.parse("g06f1/*"));
 	}
-
-	@Test
-	public void testFieldMap() throws Exception {
-		QueryParser qp = new QueryParser("all", new MockAnalyzer(random(),
-				MockTokenizer.SIMPLE, false));
-
-		Set<String> fields = new HashSet<String>();
-
-		fields.add("ti");
-		fields.add("ab");
-		fields.add("名称");
-		fields.add("摘要");
-
-		qp.setFields(fields);
-
-		Map<String, String> fieldMap = new HashMap<String, String>();
-
-		fieldMap.put("名称", "ti");
-		fieldMap.put("摘要", "ab");
-
-		Set<String> exceptedFields = new HashSet<String>();
-
-		exceptedFields.add("ti");
-		exceptedFields.add("ab");
-		exceptedFields.add("名称");
-		exceptedFields.add("摘要");
-
-		qp.setFieldMap(fieldMap);
-
-		assertEquals(exceptedFields, qp.getFields());
-
-		assertEquals(qp.parse("ti=测试 and ab=测试"), qp.parse("名称=测试 and 摘要=测试"));
-
-	}
 }

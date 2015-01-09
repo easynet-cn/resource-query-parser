@@ -89,11 +89,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	boolean autoGeneratePhraseQueries;
 
-	Set<String> fields = null;
-
-	Map<String, String> fieldMap = null;
-
-	FieldQueryTextStore fieldQueryTextStore = null;
+	List<FieldText> fieldTexts = new ArrayList<FieldText>();
 
 	// So the generated QueryParser(CharStream) won't error out
 	protected QueryParserBase() {
@@ -118,7 +114,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 		setAutoGeneratePhraseQueries(false);
 
 		BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE);
-		fieldQueryTextStore = new QueryParserFieldQueryTextStore();
 	}
 
 	// the generated parser will create these in QueryParser
@@ -421,24 +416,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return analyzeRangeTerms;
 	}
 
-	public void setFields(Set<String> fields) {
-		this.fields = fields;
-	}
-
-	public Set<String> getFields() {
-		return fields;
-	}
-
-	public void setFieldMap(Map<String, String> fieldMap) {
-		this.fieldMap = fieldMap;
-	}
-
-	public FieldQueryTextStore getFieldQueryTextStore() {
-		return fieldQueryTextStore;
-	}
-
-	public void setFieldQueryTextStore(FieldQueryTextStore fieldQueryTextStore) {
-		this.fieldQueryTextStore = fieldQueryTextStore;
+	public List<FieldText> getFieldTexts() {
+		return fieldTexts;
 	}
 
 	protected void addClause(List<BooleanClause> clauses, int conj, int mods,
@@ -577,7 +556,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 		} catch (Exception e) {
 		}
 
-		fieldQueryTextStore.add(field, "[" + part1 + " to " + part2 + "]");
+		fieldTexts.add(new FieldText(new String(field), "[" + new String(part1)
+				+ " TO " + new String(part2) + "]"));
 
 		return newRangeQuery(field, part1, part2, startInclusive, endInclusive);
 	}
@@ -950,8 +930,10 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 
 		if (!queryText.isEmpty()) {
-			fieldQueryTextStore.add(qfield, queryText);
+			fieldTexts.add(new FieldText(new String(qfield), new String(
+					queryText)));
 		}
+
 		return q;
 	}
 
@@ -986,7 +968,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 		String queryText = discardEscapeChar(term.image.substring(1,
 				term.image.length() - 1));
-		fieldQueryTextStore.add(qfield, queryText);
+		fieldTexts
+				.add(new FieldText(new String(qfield), new String(term.image)));
 		return getFieldQuery(qfield, queryText, s);
 	}
 
@@ -1012,13 +995,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	String getField(Token field) {
-		String f = field.image.toLowerCase();
-
-		if (null != fieldMap && fieldMap.containsKey(f)) {
-			return fieldMap.get(f);
-		} else {
-			return f;
-		}
+		return field.image.toLowerCase();
 	}
 
 	/**
