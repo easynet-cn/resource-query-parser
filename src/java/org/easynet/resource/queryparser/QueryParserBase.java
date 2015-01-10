@@ -33,21 +33,12 @@ import org.apache.lucene.search.BooleanQuery.TooManyClauses;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.QueryBuilder;
-import org.apache.lucene.util.Version;
 
 /**
  * This class is overridden by QueryParser in QueryParser.jj and acts to
  * separate the majority of the Java code from the .jj grammar file.
  */
 public abstract class QueryParserBase extends QueryBuilder {
-
-	/**
-	 * Do not catch this exception in your code, it means you are using methods
-	 * that you should no longer use.
-	 */
-	public static class MethodRemovedUseAnother extends Throwable {
-	}
-
 	static final int CONJ_NONE = 0;
 	static final int CONJ_AND = 1;
 	static final int CONJ_OR = 2;
@@ -556,9 +547,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 		} catch (Exception e) {
 		}
 
-		fieldTexts.add(new FieldText(new String(field), "[" + new String(part1)
-				+ " TO " + new String(part2) + "]"));
-
 		return newRangeQuery(field, part1, part2, startInclusive, endInclusive);
 	}
 
@@ -929,11 +917,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 			q = getFieldQuery(qfield, termImage, false);
 		}
 
-		if (!queryText.isEmpty()) {
-			fieldTexts.add(new FieldText(new String(qfield), new String(
-					queryText)));
-		}
-
 		return q;
 	}
 
@@ -968,8 +951,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		}
 		String queryText = discardEscapeChar(term.image.substring(1,
 				term.image.length() - 1));
-		fieldTexts
-				.add(new FieldText(new String(qfield), new String(term.image)));
+
 		return getFieldQuery(qfield, queryText, s);
 	}
 

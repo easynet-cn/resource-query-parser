@@ -5,15 +5,10 @@ package org.easynet.resource.queryparser;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.document.DateTools;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermRangeQuery;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.util.Version;
 
 public class QueryParser extends QueryParserBase implements QueryParserConstants {
   /** The default operator for parsing queries.
@@ -302,7 +297,8 @@ fuzzy=true;
         jj_la1[11] = jj_gen;
         ;
       }
-q = handleBareTokenQuery(field, term, fuzzySlop, prefix, wildcard, fuzzy, regexp);
+fieldTexts.add(new FieldText(new String(field),new String(term.image)));
+       q = handleBareTokenQuery(field, term, fuzzySlop, prefix, wildcard, fuzzy, regexp);
       break;
       }
     case RANGEIN_START:
@@ -384,7 +380,8 @@ endInc=true;
         jj_la1[17] = jj_gen;
         ;
       }
-boolean startOpen=false;
+fieldTexts.add(new FieldText(new String(field),new String("["+goop1.image + " TO " + goop2.image +"]")));
+          boolean startOpen=false;
           boolean endOpen=false;
           if (goop1.kind == RANGE_QUOTED) {
             goop1.image = goop1.image.substring(1, goop1.image.length()-1);
@@ -420,7 +417,8 @@ boolean startOpen=false;
         jj_la1[19] = jj_gen;
         ;
       }
-q = handleQuotedTerm(field, term, fuzzySlop);
+fieldTexts.add(new FieldText(new String(field),new String(term.image)));
+          q = handleQuotedTerm(field, term, fuzzySlop);
       break;
       }
     default:
@@ -440,13 +438,6 @@ q = handleQuotedTerm(field, term, fuzzySlop);
     finally { jj_save(0, xla); }
   }
 
-  private boolean jj_3R_3()
- {
-    if (jj_scan_token(STAR)) return true;
-    if (jj_scan_token(EQUAL)) return true;
-    return false;
-  }
-
   private boolean jj_3R_2()
  {
     if (jj_scan_token(TERM)) return true;
@@ -462,6 +453,13 @@ q = handleQuotedTerm(field, term, fuzzySlop);
     jj_scanpos = xsp;
     if (jj_3R_3()) return true;
     }
+    return false;
+  }
+
+  private boolean jj_3R_3()
+ {
+    if (jj_scan_token(STAR)) return true;
+    if (jj_scan_token(EQUAL)) return true;
     return false;
   }
 

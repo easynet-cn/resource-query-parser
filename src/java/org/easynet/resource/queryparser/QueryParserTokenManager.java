@@ -4,14 +4,9 @@ package org.easynet.resource.queryparser;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.document.DateTools;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermRangeQuery;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.util.Version;
 
 /** Token Manager. */
 @SuppressWarnings("unused")public class QueryParserTokenManager implements QueryParserConstants {

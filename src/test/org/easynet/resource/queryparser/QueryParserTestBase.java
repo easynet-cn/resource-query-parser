@@ -38,7 +38,6 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.util.automaton.Automata;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
-import org.apache.lucene.util.Version;
 import org.junit.*;
 
 /**
@@ -47,8 +46,6 @@ import org.junit.*;
 // TODO: it would be better to refactor the parts that are specific really
 // to the core QP and subclass/use the parts that are not in the flexible QP
 public abstract class QueryParserTestBase extends Assert {
-
-	static Version TEST_VERSION_CURRENT = Version.LUCENE_4_10_1;
 	static boolean VERBOSE = true;
 
 	public static Analyzer qpAnalyzer;
