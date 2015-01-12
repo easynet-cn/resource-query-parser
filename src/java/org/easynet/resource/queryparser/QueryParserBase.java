@@ -976,7 +976,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return q;
 	}
 
-	String getField(Token field) {
+	protected String getField(Token field) {
 		return field.image.toLowerCase();
 	}
 
