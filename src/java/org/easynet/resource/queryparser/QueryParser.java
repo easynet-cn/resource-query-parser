@@ -393,7 +393,7 @@ fieldTexts.add(new FieldText(new String(field),new String("["+goop1.image + " TO
           } else if ("*".equals(goop2.image)) {
             endOpen=true;
           }
-          q = getRangeQuery(field, startOpen ? null : discardEscapeChar(goop1.image), endOpen ? null : discardEscapeChar(goop2.image), startInc, endInc);
+          q = getRangeQuery(field, startOpen ? null : new String(goop1.image), endOpen ? null : new String(goop2.image), startInc, endInc);
       break;
       }
     case QUOTED:{
