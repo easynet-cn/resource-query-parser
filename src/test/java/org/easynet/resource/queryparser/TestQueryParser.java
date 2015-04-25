@@ -28,11 +28,14 @@ import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.document.DateTools.Resolution;
 import org.apache.lucene.index.Term;
 import org.easynet.resource.queryparser.QueryParser.Operator;
+import org.junit.Test;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+
+import static org.junit.Assert.*;
 
 /**
  * Tests QueryParser.
@@ -124,6 +127,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		qp.setDateResolution(field.toString(), value);
 	}
 
+	@Test
 	@Override
 	public void testDefaultOperator() throws Exception {
 		QueryParser qp = getParser(new MockAnalyzer(random()));
@@ -162,6 +166,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		}
 	}
 
+	@Test
 	public void testFuzzySlopeExtendability() throws ParseException {
 		QueryParser qp = new QueryParser("a", new MockAnalyzer(random(),
 				MockTokenizer.WHITESPACE, false)) {
@@ -188,9 +193,10 @@ public class TestQueryParser extends QueryParserTestBase {
 			}
 
 		};
-		assertEquals(qp.parse("a:[11.95 TO 12.95]"), qp.parse("12.45~1€"));
+		assertEquals(qp.parse("a=[11.95 TO 12.95]"), qp.parse("12.45~1€"));
 	}
 
+	@Test
 	@Override
 	public void testStarParsing() throws Exception {
 		final int[] type = new int[1];
@@ -220,43 +226,44 @@ public class TestQueryParser extends QueryParserTestBase {
 
 		TermQuery tq;
 
-		tq = (TermQuery) qp.parse("foo:zoo*");
+		tq = (TermQuery) qp.parse("foo=zoo*");
 		assertEquals("zoo", tq.getTerm().text());
 		assertEquals(2, type[0]);
 
-		tq = (TermQuery) qp.parse("foo:zoo*^2");
+		tq = (TermQuery) qp.parse("foo=zoo*^2");
 		assertEquals("zoo", tq.getTerm().text());
 		assertEquals(2, type[0]);
 		assertEquals(tq.getBoost(), 2, 0);
 
-		tq = (TermQuery) qp.parse("foo:*");
+		tq = (TermQuery) qp.parse("foo=*");
 		assertEquals("*", tq.getTerm().text());
 		assertEquals(1, type[0]); // could be a valid prefix query in the future
 									// too
 
-		tq = (TermQuery) qp.parse("foo:*^2");
+		tq = (TermQuery) qp.parse("foo=*^2");
 		assertEquals("*", tq.getTerm().text());
 		assertEquals(1, type[0]);
 		assertEquals(tq.getBoost(), 2, 0);
 
-		tq = (TermQuery) qp.parse("*:foo");
+		tq = (TermQuery) qp.parse("*=foo");
 		assertEquals("*", tq.getTerm().field());
 		assertEquals("foo", tq.getTerm().text());
 		assertEquals(3, type[0]);
 
-		tq = (TermQuery) qp.parse("*:*");
+		tq = (TermQuery) qp.parse("*=*");
 		assertEquals("*", tq.getTerm().field());
 		assertEquals("*", tq.getTerm().text());
 		assertEquals(1, type[0]); // could be handled as a prefix query in the
 									// future
 
-		tq = (TermQuery) qp.parse("(*:*)");
+		tq = (TermQuery) qp.parse("(*=*)");
 		assertEquals("*", tq.getTerm().field());
 		assertEquals("*", tq.getTerm().text());
 		assertEquals(1, type[0]);
 
 	}
 
+	@Test
 	public void testCustomQueryParserWildcard() {
 		try {
 			new QPTestParser("contents", new MockAnalyzer(random(),
@@ -267,6 +274,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		}
 	}
 
+	@Test
 	public void testCustomQueryParserFuzzy() throws Exception {
 		try {
 			new QPTestParser("contents", new MockAnalyzer(random(),
@@ -406,6 +414,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** simple CJK synonym test */
+	@Test
 	public void testCJKSynonym() throws Exception {
 		BooleanQuery expected = new BooleanQuery(true);
 		expected.add(new TermQuery(new Term("field", "国")),
@@ -421,6 +430,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** synonyms with default OR operator */
+	@Test
 	public void testCJKSynonymsOR() throws Exception {
 		BooleanQuery expected = new BooleanQuery();
 		expected.add(new TermQuery(new Term("field", "中")),
@@ -438,6 +448,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** more complex synonyms with default OR operator */
+	@Test
 	public void testCJKSynonymsOR2() throws Exception {
 		BooleanQuery expected = new BooleanQuery();
 		expected.add(new TermQuery(new Term("field", "中")),
@@ -461,6 +472,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** synonyms with default AND operator */
+	@Test
 	public void testCJKSynonymsAND() throws Exception {
 		BooleanQuery expected = new BooleanQuery();
 		expected.add(new TermQuery(new Term("field", "中")),
@@ -479,6 +491,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** more complex synonyms with default AND operator */
+	@Test
 	public void testCJKSynonymsAND2() throws Exception {
 		BooleanQuery expected = new BooleanQuery();
 		expected.add(new TermQuery(new Term("field", "中")),
@@ -503,6 +516,7 @@ public class TestQueryParser extends QueryParserTestBase {
 	}
 
 	/** forms multiphrase query */
+	@Test
 	public void testCJKSynonymsPhrase() throws Exception {
 		MultiPhraseQuery expected = new MultiPhraseQuery();
 		expected.add(new Term("field", "中"));
