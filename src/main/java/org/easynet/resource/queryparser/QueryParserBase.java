@@ -27,18 +27,29 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.document.DateTools;
 import org.apache.lucene.index.Term;
-import org.easynet.resource.queryparser.QueryParser.Operator;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanQuery.TooManyClauses;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.QueryBuilder;
+import org.apache.lucene.util.automaton.RegExp;
+
+import static org.apache.lucene.util.automaton.Operations.DEFAULT_MAX_DETERMINIZED_STATES;
+
+import org.easynet.resource.queryparser.QueryParser.Operator;
 
 /**
  * This class is overridden by QueryParser in QueryParser.jj and acts to
  * separate the majority of the Java code from the .jj grammar file.
  */
 public abstract class QueryParserBase extends QueryBuilder {
+
+	/**
+	 * Do not catch this exception in your code, it means you are using methods
+	 * that you should no longer use.
+	 */
+	public static class MethodRemovedUseAnother extends Throwable {
+	}
+
 	static final int CONJ_NONE = 0;
 	static final int CONJ_AND = 1;
 	static final int CONJ_OR = 2;
@@ -58,10 +69,10 @@ public abstract class QueryParserBase extends QueryBuilder {
 	Operator operator = OR_OPERATOR;
 
 	boolean lowercaseExpandedTerms = true;
-	MultiTermQuery.RewriteMethod multiTermRewriteMethod = MultiTermQuery.CONSTANT_SCORE_AUTO_REWRITE_DEFAULT;
+	MultiTermQuery.RewriteMethod multiTermRewriteMethod = MultiTermQuery.CONSTANT_SCORE_REWRITE;
 	boolean allowLeadingWildcard = false;
 
-	String field;
+	protected String field;
 	int phraseSlop = 0;
 	float fuzzyMinSim = FuzzyQuery.defaultMinSimilarity;
 	int fuzzyPrefixLength = FuzzyQuery.defaultPrefixLength;
@@ -79,6 +90,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	boolean analyzeRangeTerms = false;
 
 	boolean autoGeneratePhraseQueries;
+	int maxDeterminizedStates = DEFAULT_MAX_DETERMINIZED_STATES;
 
 	List<FieldText> fieldTexts = new ArrayList<FieldText>();
 
@@ -90,9 +102,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 	/**
 	 * Initializes a query parser. Called by the QueryParser constructor
 	 * 
-	 * @param matchVersion
-	 *            Lucene version to match. See <a
-	 *            href="QueryParser.html#version">here</a>.
 	 * @param f
 	 *            the default field for query terms.
 	 * @param a
@@ -101,10 +110,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	public void init(String f, Analyzer a) {
 		setAnalyzer(a);
 		field = f;
-
 		setAutoGeneratePhraseQueries(false);
-
-		BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE);
 	}
 
 	// the generated parser will create these in QueryParser
@@ -127,15 +133,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 			// TopLevelQuery is a Query followed by the end-of-input (EOF)
 			Query res = TopLevelQuery(field);
 			return res != null ? res : newBooleanQuery(false);
-		} catch (MissingFieldException tme) {
-			throw tme;
-		} catch (ParseException tme) {
+		} catch (ParseException | TokenMgrError tme) {
 			// rethrow to include the original query:
-			ParseException e = new ParseException("Cannot parse '" + query
-					+ "': " + tme.getMessage());
-			e.initCause(tme);
-			throw e;
-		} catch (TokenMgrError tme) {
 			ParseException e = new ParseException("Cannot parse '" + query
 					+ "': " + tme.getMessage());
 			e.initCause(tme);
@@ -246,7 +245,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * Sets the boolean operator of the QueryParser. In default mode (
 	 * <code>OR_OPERATOR</code>) terms without any modifiers are considered
 	 * optional: for example <code>capital of Hungary</code> is equal to
-	 * <code>capital OR of OR Hungary</code>.<br/>
+	 * <code>capital OR of OR Hungary</code>.<br>
 	 * In <code>AND_OPERATOR</code> mode terms are considered to be in
 	 * conjunction: the above mentioned query is parsed as
 	 * <code>capital AND of AND Hungary</code>
@@ -280,7 +279,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	/**
 	 * By default QueryParser uses
-	 * {@link org.apache.lucene.search.MultiTermQuery#CONSTANT_SCORE_AUTO_REWRITE_DEFAULT}
+	 * {@link org.apache.lucene.search.MultiTermQuery#CONSTANT_SCORE_REWRITE}
 	 * when creating a {@link PrefixQuery}, {@link WildcardQuery} or
 	 * {@link TermRangeQuery}. This implementation is generally preferable
 	 * because it a) Runs faster b) Does not have the scarcity of terms unduly
@@ -329,7 +328,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * resolutions can be set with
 	 * {@link #setDateResolution(String, org.apache.lucene.document.DateTools.Resolution)}
 	 * .
-	 * 
+	 *
 	 * @param dateResolution
 	 *            the default date resolution to set
 	 */
@@ -339,7 +338,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 	/**
 	 * Sets the date resolution used by RangeQueries for a specific field.
-	 * 
+	 *
 	 * @param fieldName
 	 *            field for which the date resolution is to be set
 	 * @param dateResolution
@@ -353,7 +352,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 		if (fieldToDateResolution == null) {
 			// lazily initialize HashMap
-			fieldToDateResolution = new HashMap<String, DateTools.Resolution>();
+			fieldToDateResolution = new HashMap<>();
 		}
 
 		fieldToDateResolution.put(fieldName, dateResolution);
@@ -363,7 +362,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * Returns the date resolution that is used by RangeQueries for the given
 	 * field. Returns null, if no default or field specific date resolution has
 	 * been set for the given field.
-	 * 
+	 *
 	 */
 	public DateTools.Resolution getDateResolution(String fieldName) {
 		if (fieldName == null) {
@@ -407,8 +406,23 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return analyzeRangeTerms;
 	}
 
-	public List<FieldText> getFieldTexts() {
-		return fieldTexts;
+	/**
+	 * @param maxDeterminizedStates
+	 *            the maximum number of states that determinizing a regexp query
+	 *            can result in. If the query results in any more states a
+	 *            TooComplexToDeterminizeException is thrown.
+	 */
+	public void setMaxDeterminizedStates(int maxDeterminizedStates) {
+		this.maxDeterminizedStates = maxDeterminizedStates;
+	}
+
+	/**
+	 * @return the maximum number of states that determinizing a regexp query
+	 *         can result in. If the query results in any more states a
+	 *         TooComplexToDeterminizeException is thrown.
+	 */
+	public int getMaxDeterminizedStates() {
+		return maxDeterminizedStates;
 	}
 
 	protected void addClause(List<BooleanClause> clauses, int conj, int mods,
@@ -493,7 +507,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * {@link #getFieldQuery(String,String,boolean)}. This method may be
 	 * overridden, for example, to return a SpanNearQuery instead of a
 	 * PhraseQuery.
-	 * 
+	 *
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
@@ -584,7 +598,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @return new RegexpQuery instance
 	 */
 	protected Query newRegexpQuery(Term regexp) {
-		RegexpQuery query = new RegexpQuery(regexp);
+		RegexpQuery query = new RegexpQuery(regexp, RegExp.ALL,
+				maxDeterminizedStates);
 		query.setRewriteMethod(multiTermRewriteMethod);
 		return query;
 	}
@@ -619,9 +634,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		if (analyzerIn == null)
 			analyzerIn = getAnalyzer();
 
-		TokenStream source = null;
-		try {
-			source = analyzerIn.tokenStream(field, part);
+		try (TokenStream source = analyzerIn.tokenStream(field, part)) {
 			source.reset();
 
 			TermToBytesRefAttribute termAtt = source
@@ -642,8 +655,6 @@ public abstract class QueryParserBase extends QueryBuilder {
 		} catch (IOException e) {
 			throw new RuntimeException("Error analyzing multiTerm term: "
 					+ part, e);
-		} finally {
-			IOUtils.closeWhileHandlingException(source);
 		}
 	}
 
@@ -713,14 +724,14 @@ public abstract class QueryParserBase extends QueryBuilder {
 	/**
 	 * Factory method for generating query, given a set of clauses. By default
 	 * creates a boolean query composed of clauses passed in.
-	 * 
+	 *
 	 * Can be overridden by extending classes, to modify query being returned.
-	 * 
+	 *
 	 * @param clauses
 	 *            List that contains
 	 *            {@link org.apache.lucene.search.BooleanClause} instances to
 	 *            join.
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} object.
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
@@ -733,16 +744,16 @@ public abstract class QueryParserBase extends QueryBuilder {
 	/**
 	 * Factory method for generating query, given a set of clauses. By default
 	 * creates a boolean query composed of clauses passed in.
-	 * 
+	 *
 	 * Can be overridden by extending classes, to modify query being returned.
-	 * 
+	 *
 	 * @param clauses
 	 *            List that contains
 	 *            {@link org.apache.lucene.search.BooleanClause} instances to
 	 *            join.
 	 * @param disableCoord
 	 *            true if coord scoring should be disabled.
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} object.
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
@@ -771,13 +782,13 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * <p>
 	 * Can be overridden by extending classes, to provide custom handling for
 	 * wildcard queries, which may be necessary due to missing analyzer calls.
-	 * 
+	 *
 	 * @param field
 	 *            Name of the field query will use.
 	 * @param termStr
 	 *            Term token that contains one or more wild card characters (?
 	 *            or *), but is not simple prefix term
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} built for the
 	 *         term
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
@@ -811,12 +822,12 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * Can be overridden by extending classes, to provide custom handling for
 	 * regular expression queries, which may be necessary due to missing
 	 * analyzer calls.
-	 * 
+	 *
 	 * @param field
 	 *            Name of the field query will use.
 	 * @param termStr
 	 *            Term token that contains a regular expression
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} built for the
 	 *         term
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
@@ -845,13 +856,13 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * <p>
 	 * Can be overridden by extending classes, to provide custom handling for
 	 * wild card queries, which may be necessary due to missing analyzer calls.
-	 * 
+	 *
 	 * @param field
 	 *            Name of the field query will use.
 	 * @param termStr
 	 *            Term token to use for building term for the query
 	 *            (<b>without</b> trailing '*' character!)
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} built for the
 	 *         term
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
@@ -873,12 +884,12 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * Factory method for generating a query (similar to
 	 * {@link #getWildcardQuery}). Called when parser parses an input term token
 	 * that has the fuzzy suffix (~) appended.
-	 * 
+	 *
 	 * @param field
 	 *            Name of the field query will use.
 	 * @param termStr
 	 *            Term token to use for building term for the query
-	 * 
+	 *
 	 * @return Resulting {@link org.apache.lucene.search.Query} built for the
 	 *         term
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
@@ -894,34 +905,31 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	protected Query handleBareTokenQuery(String qfield, Token term,
-			Token fuzzySlop, boolean prefix, boolean wildcard, boolean fuzzy,
-			boolean regexp) throws ParseException {
+	Query handleBareTokenQuery(String qfield, Token term, Token fuzzySlop,
+			boolean prefix, boolean wildcard, boolean fuzzy, boolean regexp)
+			throws ParseException {
 		Query q;
 
 		String termImage = new String(term.image);
-		String queryText = new String(termImage);
-
 		if (wildcard) {
-			queryText = term.image;
-			q = getWildcardQuery(qfield, queryText);
+			q = getWildcardQuery(qfield, term.image);
 		} else if (prefix) {
-			queryText = term.image.substring(0, term.image.length() - 1);
-			q = getPrefixQuery(qfield, queryText);
+			q = getPrefixQuery(
+					qfield,
+					new String(term.image.substring(0, term.image.length() - 1)));
 		} else if (regexp) {
-			queryText = term.image.substring(1, term.image.length() - 1);
-			q = getRegexpQuery(qfield, queryText);
+			q = getRegexpQuery(qfield,
+					term.image.substring(1, term.image.length() - 1));
 		} else if (fuzzy) {
 			q = handleBareFuzzy(qfield, fuzzySlop, termImage);
 		} else {
 			q = getFieldQuery(qfield, termImage, false);
 		}
-
 		return q;
 	}
 
-	protected Query handleBareFuzzy(String qfield, Token fuzzySlop,
-			String termImage) throws ParseException {
+	Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage)
+			throws ParseException {
 		Query q;
 		float fms = fuzzyMinSim;
 		try {
@@ -940,7 +948,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	protected Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop)
+	Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop)
 			throws ParseException {
 		int s = phraseSlop; // default
 		if (fuzzySlop != null) {
@@ -949,14 +957,12 @@ public abstract class QueryParserBase extends QueryBuilder {
 			} catch (Exception ignored) {
 			}
 		}
-		String queryText = new String(term.image.substring(1,
-				term.image.length() - 1));
-
-		return getFieldQuery(qfield, queryText, s);
+		return getFieldQuery(qfield,
+				new String(term.image.substring(1, term.image.length() - 1)), s);
 	}
 
 	// extracted from the .jj grammar
-	protected Query handleBoost(Query q, Token boost) {
+	Query handleBoost(Query q, Token boost) {
 		if (boost != null) {
 			float f = (float) 1.0;
 			try {
@@ -979,4 +985,5 @@ public abstract class QueryParserBase extends QueryBuilder {
 	protected String getField(Token field) {
 		return field.image.toLowerCase();
 	}
+
 }

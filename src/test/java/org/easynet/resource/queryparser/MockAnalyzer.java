@@ -31,7 +31,7 @@ import org.apache.lucene.util.automaton.CharacterRunAutomaton;
  * <p>
  * This analyzer is a replacement for Whitespace/Simple/KeywordAnalyzers for
  * unit tests. If you are testing a custom component such as a queryparser or
- * analyzer-wrapper that consumes analysis streams, its a great idea to test it
+ * analyzer-wrapper that consumes analysis streams, it's a great idea to test it
  * with this analyzer instead. MockAnalyzer has the following behavior:
  * <ul>
  * <li>By default, the assertions in {@link MockTokenizer} are turned on for
@@ -44,9 +44,9 @@ import org.apache.lucene.util.automaton.CharacterRunAutomaton;
  * @see MockTokenizer
  */
 public final class MockAnalyzer extends Analyzer {
-	static boolean VERBOSE = true;
-	static boolean TEST_NIGHTLY = false;
-	static int RANDOM_MULTIPLIER = 1;
+	static final boolean VERBOSE = false;
+	static final boolean TEST_NIGHTLY = false;
+	static final int RANDOM_MULTIPLIER = 1;
 
 	private final CharacterRunAutomaton runAutomaton;
 	private final boolean lowerCase;
@@ -54,7 +54,7 @@ public final class MockAnalyzer extends Analyzer {
 	private int positionIncrementGap;
 	private Integer offsetGap;
 	private final Random random;
-	private Map<String, Integer> previousMappings = new HashMap<String, Integer>();
+	private Map<String, Integer> previousMappings = new HashMap<>();
 	private boolean enableChecks = true;
 	private int maxTokenLength = MockTokenizer.DEFAULT_MAX_TOKEN_LENGTH;
 
@@ -106,10 +106,9 @@ public final class MockAnalyzer extends Analyzer {
 	}
 
 	@Override
-	public TokenStreamComponents createComponents(String fieldName,
-			Reader reader) {
-		MockTokenizer tokenizer = new MockTokenizer(reader, runAutomaton,
-				lowerCase, maxTokenLength);
+	public TokenStreamComponents createComponents(String fieldName) {
+		MockTokenizer tokenizer = new MockTokenizer(runAutomaton, lowerCase,
+				maxTokenLength);
 		tokenizer.setEnableChecks(enableChecks);
 		MockTokenFilter filt = new MockTokenFilter(tokenizer, filter);
 		return new TokenStreamComponents(tokenizer, maybePayload(filt,

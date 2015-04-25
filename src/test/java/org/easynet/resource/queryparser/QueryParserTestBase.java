@@ -18,12 +18,13 @@ package org.easynet.resource.queryparser;
  */
 
 import java.io.IOException;
-import java.io.Reader;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 import java.util.TimeZone;
 
@@ -32,9 +33,23 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.document.DateTools;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.store.BaseDirectory;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.automaton.Automata;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
@@ -46,9 +61,13 @@ import org.junit.*;
 // TODO: it would be better to refactor the parts that are specific really
 // to the core QP and subclass/use the parts that are not in the flexible QP
 public abstract class QueryParserTestBase extends Assert {
+
 	static boolean VERBOSE = true;
+	static final boolean TEST_NIGHTLY = false;
+	static final int RANDOM_MULTIPLIER = 1;
 
 	public static Analyzer qpAnalyzer;
+	private static final Map<String, FieldType> fieldToType = new HashMap<String, FieldType>();
 
 	@BeforeClass
 	public static void beforeClass() {
@@ -105,10 +124,8 @@ public abstract class QueryParserTestBase extends Assert {
 
 		/** Filters MockTokenizer with StopFilter. */
 		@Override
-		public TokenStreamComponents createComponents(String fieldName,
-				Reader reader) {
-			Tokenizer tokenizer = new MockTokenizer(reader,
-					MockTokenizer.SIMPLE, true);
+		public TokenStreamComponents createComponents(String fieldName) {
+			Tokenizer tokenizer = new MockTokenizer(MockTokenizer.SIMPLE, true);
 			return new TokenStreamComponents(tokenizer, new QPTestFilter(
 					tokenizer));
 		}
@@ -176,6 +193,15 @@ public abstract class QueryParserTestBase extends Assert {
 		}
 	}
 
+	public void assertEscapedQueryEquals(String query, Analyzer a, String result)
+			throws Exception {
+		String escapedQuery = getQuery(query, a).toString();
+		if (!escapedQuery.equals(result)) {
+			fail("Query /" + query + "/ yielded /" + escapedQuery
+					+ "/, expecting /" + result + "/");
+		}
+	}
+
 	public void assertWildcardQueryEquals(String query, boolean lowercase,
 			String result, boolean allowLeadingWildcard) throws Exception {
 		QueryParser cqpC = getParserConfig(null);
@@ -234,8 +260,8 @@ public abstract class QueryParserTestBase extends Assert {
 	protected static class SimpleCJKTokenizer extends Tokenizer {
 		private CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
 
-		public SimpleCJKTokenizer(Reader input) {
-			super(input);
+		public SimpleCJKTokenizer() {
+			super();
 		}
 
 		@Override
@@ -251,9 +277,8 @@ public abstract class QueryParserTestBase extends Assert {
 
 	private class SimpleCJKAnalyzer extends Analyzer {
 		@Override
-		public TokenStreamComponents createComponents(String fieldName,
-				Reader reader) {
-			return new TokenStreamComponents(new SimpleCJKTokenizer(reader));
+		public TokenStreamComponents createComponents(String fieldName) {
+			return new TokenStreamComponents(new SimpleCJKTokenizer());
 		}
 	}
 
@@ -392,9 +417,8 @@ public abstract class QueryParserTestBase extends Assert {
 		// whitespace) to be treated as an operator
 		Analyzer a = new Analyzer() {
 			@Override
-			public TokenStreamComponents createComponents(String fieldName,
-					Reader reader) {
-				return new TokenStreamComponents(new MockTokenizer(reader,
+			public TokenStreamComponents createComponents(String fieldName) {
+				return new TokenStreamComponents(new MockTokenizer(
 						MockTokenizer.WHITESPACE, false));
 			}
 		};
@@ -565,14 +589,14 @@ public abstract class QueryParserTestBase extends Assert {
 		assertQueryEquals("[ a TO z}", null, "[a TO z}");
 		assertQueryEquals("{ a TO z]", null, "{a TO z]");
 
-		assertEquals(MultiTermQuery.CONSTANT_SCORE_AUTO_REWRITE_DEFAULT,
+		assertEquals(MultiTermQuery.CONSTANT_SCORE_REWRITE,
 				((TermRangeQuery) getQuery("[ a TO z]")).getRewriteMethod());
 
 		QueryParser qp = getParserConfig(new MockAnalyzer(random(),
 				MockTokenizer.SIMPLE, true));
 
-		qp.setMultiTermRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_QUERY_REWRITE);
-		assertEquals(MultiTermQuery.SCORING_BOOLEAN_QUERY_REWRITE,
+		qp.setMultiTermRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_REWRITE);
+		assertEquals(MultiTermQuery.SCORING_BOOLEAN_REWRITE,
 				((TermRangeQuery) getQuery("[ a TO z]", qp)).getRewriteMethod());
 
 		// test open ranges
@@ -803,6 +827,45 @@ public abstract class QueryParserTestBase extends Assert {
 		assertQueryEquals("a:b\\\\?c", a, "a:b\\\\?c");
 	}
 
+	public void testQueryStringEscaping() throws Exception {
+		Analyzer a = new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false);
+
+		assertEscapedQueryEquals("a-b:c", a, "a\\-b\\:c");
+		assertEscapedQueryEquals("a+b:c", a, "a\\+b\\:c");
+		assertEscapedQueryEquals("a:b:c", a, "a\\:b\\:c");
+		assertEscapedQueryEquals("a\\b:c", a, "a\\\\b\\:c");
+
+		assertEscapedQueryEquals("a:b-c", a, "a\\:b\\-c");
+		assertEscapedQueryEquals("a:b+c", a, "a\\:b\\+c");
+		assertEscapedQueryEquals("a:b:c", a, "a\\:b\\:c");
+		assertEscapedQueryEquals("a:b\\c", a, "a\\:b\\\\c");
+
+		assertEscapedQueryEquals("a:b-c*", a, "a\\:b\\-c\\*");
+		assertEscapedQueryEquals("a:b+c*", a, "a\\:b\\+c\\*");
+		assertEscapedQueryEquals("a:b:c*", a, "a\\:b\\:c\\*");
+
+		assertEscapedQueryEquals("a:b\\\\c*", a, "a\\:b\\\\\\\\c\\*");
+
+		assertEscapedQueryEquals("a:b-?c", a, "a\\:b\\-\\?c");
+		assertEscapedQueryEquals("a:b+?c", a, "a\\:b\\+\\?c");
+		assertEscapedQueryEquals("a:b:?c", a, "a\\:b\\:\\?c");
+
+		assertEscapedQueryEquals("a:b?c", a, "a\\:b\\?c");
+
+		assertEscapedQueryEquals("a:b-c~", a, "a\\:b\\-c\\~");
+		assertEscapedQueryEquals("a:b+c~", a, "a\\:b\\+c\\~");
+		assertEscapedQueryEquals("a:b:c~", a, "a\\:b\\:c\\~");
+		assertEscapedQueryEquals("a:b\\c~", a, "a\\:b\\\\c\\~");
+
+		assertEscapedQueryEquals("[ a - TO a+ ]", null, "\\[ a \\- TO a\\+ \\]");
+		assertEscapedQueryEquals("[ a : TO a~ ]", null, "\\[ a \\: TO a\\~ \\]");
+		assertEscapedQueryEquals("[ a\\ TO a* ]", null, "\\[ a\\\\ TO a\\* \\]");
+
+		// LUCENE-881
+		assertEscapedQueryEquals("|| abc ||", a, "\\|\\| abc \\|\\|");
+		assertEscapedQueryEquals("&& abc &&", a, "\\&\\& abc \\&\\&");
+	}
+
 	public void testTabNewlineCarriageReturn() throws Exception {
 		assertQueryEqualsDOA("+weltbank +worlbank", null, "+weltbank +worlbank");
 
@@ -925,9 +988,8 @@ public abstract class QueryParserTestBase extends Assert {
 	// Todo: convert this from DateField to DateUtil
 	// public void testLocalDateFormat() throws IOException, ParseException {
 	// Directory ramDir = newDirectory();
-	// IndexWriter iw = new IndexWriter(ramDir, newIndexWriterConfig(
-	// TEST_VERSION_CURRENT, new MockAnalyzer(random, MockTokenizer.WHITESPACE,
-	// false)));
+	// IndexWriter iw = new IndexWriter(ramDir, newIndexWriterConfig(new
+	// MockAnalyzer(random, MockTokenizer.WHITESPACE, false)));
 	// addDateDoc("a", 2005, 12, 2, 10, 15, 33, iw);
 	// addDateDoc("b", 2005, 12, 4, 22, 15, 00, iw);
 	// iw.close();
@@ -972,14 +1034,14 @@ public abstract class QueryParserTestBase extends Assert {
 		assertEquals(q, getQuery("/[A-Z][123]/", qp));
 		q.setBoost(0.5f);
 		assertEquals(q, getQuery("/[A-Z][123]/^0.5", qp));
-		qp.setMultiTermRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_QUERY_REWRITE);
-		q.setRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_QUERY_REWRITE);
+		qp.setMultiTermRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_REWRITE);
+		q.setRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_REWRITE);
 		assertTrue(getQuery("/[A-Z][123]/^0.5", qp) instanceof RegexpQuery);
-		assertEquals(MultiTermQuery.SCORING_BOOLEAN_QUERY_REWRITE,
+		assertEquals(MultiTermQuery.SCORING_BOOLEAN_REWRITE,
 				((RegexpQuery) getQuery("/[A-Z][123]/^0.5", qp))
 						.getRewriteMethod());
 		assertEquals(q, getQuery("/[A-Z][123]/^0.5", qp));
-		qp.setMultiTermRewriteMethod(MultiTermQuery.CONSTANT_SCORE_AUTO_REWRITE_DEFAULT);
+		qp.setMultiTermRewriteMethod(MultiTermQuery.CONSTANT_SCORE_REWRITE);
 
 		Query escaped = new RegexpQuery(new Term("field", "[a-z]\\/[123]"));
 		assertEquals(escaped, getQuery("/[a-z]\\/[123]/", qp));
@@ -1088,7 +1150,7 @@ public abstract class QueryParserTestBase extends Assert {
 				MockTokenizer.WHITESPACE, false));
 		qp.setLocale(Locale.ENGLISH);
 		Query q = getQuery(query, qp);
-		ScoreDoc[] hits = is.search(q, null, 1000).scoreDocs;
+		ScoreDoc[] hits = is.search(q, 1000).scoreDocs;
 		assertEquals(expected, hits.length);
 		setDefaultField(oldDefaultField);
 	}
@@ -1096,6 +1158,27 @@ public abstract class QueryParserTestBase extends Assert {
 	@After
 	public void tearDown() throws Exception {
 		BooleanQuery.setMaxClauseCount(originalMaxClauses);
+	}
+
+	// LUCENE-2002: make sure defaults for StandardAnalyzer's
+	// enableStopPositionIncr & QueryParser's enablePosIncr
+	// "match"
+	public void testPositionIncrements() throws Exception {
+		Directory dir = newDirectory();
+		Analyzer a = new MockAnalyzer(random(), MockTokenizer.SIMPLE, true,
+				MockTokenFilter.ENGLISH_STOPSET);
+		IndexWriter w = new IndexWriter(dir, newIndexWriterConfig(a));
+		Document doc = new Document();
+		doc.add(newTextField("field", "the wizard of ozzy", Field.Store.NO));
+		w.addDocument(doc);
+		IndexReader r = DirectoryReader.open(w, true);
+		w.close();
+		IndexSearcher s = newSearcher(r);
+
+		Query q = getQuery("\"wizard of ozzy\"", a);
+		assertEquals(1, s.search(q, 1).totalHits);
+		r.close();
+		dir.close();
 	}
 
 	/**
@@ -1136,10 +1219,9 @@ public abstract class QueryParserTestBase extends Assert {
 		}
 
 		@Override
-		public TokenStreamComponents createComponents(String fieldName,
-				Reader reader) {
-			Tokenizer tokenizer = new MockTokenizer(reader,
-					MockTokenizer.WHITESPACE, true);
+		public TokenStreamComponents createComponents(String fieldName) {
+			Tokenizer tokenizer = new MockTokenizer(MockTokenizer.WHITESPACE,
+					true);
 			return new TokenStreamComponents(tokenizer, new MockSynonymFilter(
 					tokenizer));
 		}
@@ -1152,9 +1234,8 @@ public abstract class QueryParserTestBase extends Assert {
 		}
 
 		@Override
-		public TokenStreamComponents createComponents(String fieldName,
-				Reader reader) {
-			return new TokenStreamComponents(new MockTokenizer(reader,
+		public TokenStreamComponents createComponents(String fieldName) {
+			return new TokenStreamComponents(new MockTokenizer(
 					MockTokenizer.WHITESPACE, true));
 		}
 	}
@@ -1186,10 +1267,9 @@ public abstract class QueryParserTestBase extends Assert {
 
 	private class MockCollationAnalyzer extends Analyzer {
 		@Override
-		public TokenStreamComponents createComponents(String fieldName,
-				Reader reader) {
-			Tokenizer tokenizer = new MockTokenizer(reader,
-					MockTokenizer.WHITESPACE, true);
+		public TokenStreamComponents createComponents(String fieldName) {
+			Tokenizer tokenizer = new MockTokenizer(MockTokenizer.WHITESPACE,
+					true);
 			return new TokenStreamComponents(tokenizer,
 					new MockCollationFilter(tokenizer));
 		}
@@ -1301,8 +1381,130 @@ public abstract class QueryParserTestBase extends Assert {
 		assertEquals(q, getQuery(query, new MockAnalyzer(random())));
 	}
 
+	public static BaseDirectory newDirectory() {
+		return new RAMDirectory();
+	}
+
+	public static IndexWriterConfig newIndexWriterConfig(Analyzer a) {
+		return new IndexWriterConfig(a);
+	}
+
+	public static Field newTextField(String name, String value, Store stored) {
+		return newField(random(), name, value,
+				stored == Store.YES ? TextField.TYPE_STORED
+						: TextField.TYPE_NOT_STORED);
+	}
+
+	public synchronized static Field newField(Random random, String name,
+			String value, FieldType type) {
+
+		// Defeat any consumers that illegally rely on intern'd
+		// strings (we removed this from Lucene a while back):
+		name = new String(name);
+
+		FieldType prevType = fieldToType.get(name);
+
+		if (usually(random) || type.indexOptions() == IndexOptions.NONE
+				|| prevType != null) {
+			// most of the time, don't modify the params
+			if (prevType == null) {
+				fieldToType.put(name, new FieldType(type));
+			} else {
+				type = mergeTermVectorOptions(type, prevType);
+			}
+
+			return new Field(name, value, type);
+		}
+
+		// TODO: once all core & test codecs can index
+		// offsets, sometimes randomly turn on offsets if we are
+		// already indexing positions...
+
+		FieldType newType = new FieldType(type);
+		if (!newType.stored() && random.nextBoolean()) {
+			newType.setStored(true); // randomly store it
+		}
+
+		// Randomly turn on term vector options, but always do
+		// so consistently for the same field name:
+		if (!newType.storeTermVectors() && random.nextBoolean()) {
+			newType.setStoreTermVectors(true);
+			if (!newType.storeTermVectorPositions()) {
+				newType.setStoreTermVectorPositions(random.nextBoolean());
+
+				if (newType.storeTermVectorPositions()) {
+					if (!newType.storeTermVectorPayloads()) {
+						newType.setStoreTermVectorPayloads(random.nextBoolean());
+					}
+				}
+			}
+
+			if (!newType.storeTermVectorOffsets()) {
+				newType.setStoreTermVectorOffsets(random.nextBoolean());
+			}
+
+			if (VERBOSE) {
+				System.out.println("NOTE: LuceneTestCase: upgrade name=" + name
+						+ " type=" + newType);
+			}
+		}
+		newType.freeze();
+		fieldToType.put(name, newType);
+
+		// TODO: we need to do this, but smarter, ie, most of
+		// the time we set the same value for a given field but
+		// sometimes (rarely) we change it up:
+		/*
+		 * if (newType.omitNorms()) {
+		 * newType.setOmitNorms(random.nextBoolean()); }
+		 */
+
+		return new Field(name, value, newType);
+	}
+
+	private static FieldType mergeTermVectorOptions(FieldType newType,
+			FieldType oldType) {
+		if (newType.indexOptions() != IndexOptions.NONE
+				&& oldType.storeTermVectors() == true
+				&& newType.storeTermVectors() == false) {
+			newType = new FieldType(newType);
+			newType.setStoreTermVectors(oldType.storeTermVectors());
+			newType.setStoreTermVectorPositions(oldType
+					.storeTermVectorPositions());
+			newType.setStoreTermVectorOffsets(oldType.storeTermVectorOffsets());
+			newType.setStoreTermVectorPayloads(oldType
+					.storeTermVectorPayloads());
+			newType.freeze();
+		}
+
+		return newType;
+	}
+
+	public static IndexSearcher newSearcher(IndexReader r) {
+		return new IndexSearcher(r);
+	}
+
+	public static boolean rarely(Random random) {
+		int p = TEST_NIGHTLY ? 10 : 1;
+		p += (p * Math.log(RANDOM_MULTIPLIER));
+		int min = 100 - Math.min(p, 50); // never more than 50
+		return random.nextInt(100) >= min;
+	}
+
 	public static Random random() {
-		return new Random();
+		return new Random(System.nanoTime());
+	}
+
+	public static boolean rarely() {
+		return rarely(random());
+	}
+
+	public static boolean usually(Random random) {
+		return !rarely(random);
+	}
+
+	public static boolean usually() {
+		return usually(random());
 	}
 
 }
