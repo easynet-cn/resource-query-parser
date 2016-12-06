@@ -1,5 +1,3 @@
-package org.easynet.resource.queryparser;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.easynet.resource.queryparser;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.easynet.resource.queryparser;
 
 import java.io.IOException;
 import java.nio.CharBuffer;
@@ -27,6 +26,8 @@ import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.util.AttributeFactory;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
+
+import com.carrotsearch.randomizedtesting.RandomizedContext;
 
 /**
  * Tokenizer for testing.
@@ -49,8 +50,7 @@ public class MockTokenizer extends Tokenizer {
 	 * Acts Similar to KeywordTokenizer. TODO: Keyword returns an "empty" token
 	 * for an empty reader...
 	 */
-	public static final CharacterRunAutomaton KEYWORD = new CharacterRunAutomaton(
-			new RegExp(".*").toAutomaton());
+	public static final CharacterRunAutomaton KEYWORD = new CharacterRunAutomaton(new RegExp(".*").toAutomaton());
 	/** Acts like LetterTokenizer. */
 	// the ugly regex below is incomplete Unicode 5.2 [:Letter:]
 	public static final CharacterRunAutomaton SIMPLE = new CharacterRunAutomaton(
@@ -92,22 +92,19 @@ public class MockTokenizer extends Tokenizer {
 
 	// evil: but we don't change the behavior with this random, we only switch
 	// up how we read
-	private final Random random = new Random(System.nanoTime());
+	private final Random random = new Random(RandomizedContext.current().getRandom().nextLong());
 
-	public MockTokenizer(AttributeFactory factory,
-			CharacterRunAutomaton runAutomaton, boolean lowerCase,
+	public MockTokenizer(AttributeFactory factory, CharacterRunAutomaton runAutomaton, boolean lowerCase,
 			int maxTokenLength) {
 		super(factory);
 		this.runAutomaton = runAutomaton;
 		this.lowerCase = lowerCase;
-		this.state = runAutomaton.getInitialState();
+		this.state = 0;
 		this.maxTokenLength = maxTokenLength;
 	}
 
-	public MockTokenizer(CharacterRunAutomaton runAutomaton, boolean lowerCase,
-			int maxTokenLength) {
-		this(AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY, runAutomaton,
-				lowerCase, maxTokenLength);
+	public MockTokenizer(CharacterRunAutomaton runAutomaton, boolean lowerCase, int maxTokenLength) {
+		this(BaseTokenStreamTestCase.newAttributeFactory(), runAutomaton, lowerCase, maxTokenLength);
 	}
 
 	public MockTokenizer(CharacterRunAutomaton runAutomaton, boolean lowerCase) {
@@ -122,8 +119,7 @@ public class MockTokenizer extends Tokenizer {
 		this(WHITESPACE, true);
 	}
 
-	public MockTokenizer(AttributeFactory factory,
-			CharacterRunAutomaton runAutomaton, boolean lowerCase) {
+	public MockTokenizer(AttributeFactory factory, CharacterRunAutomaton runAutomaton, boolean lowerCase) {
 		this(factory, runAutomaton, lowerCase, DEFAULT_MAX_TOKEN_LENGTH);
 	}
 
@@ -193,23 +189,19 @@ public class MockTokenizer extends Tokenizer {
 				int correctedStartOffset = correctOffset(startOffset);
 				int correctedEndOffset = correctOffset(endOffset);
 				if (correctedStartOffset < 0) {
-					failAlways("invalid start offset: " + correctedStartOffset
-							+ ", before correction: " + startOffset);
+					failAlways("invalid start offset: " + correctedStartOffset + ", before correction: " + startOffset);
 				}
 				if (correctedEndOffset < 0) {
-					failAlways("invalid end offset: " + correctedEndOffset
-							+ ", before correction: " + endOffset);
+					failAlways("invalid end offset: " + correctedEndOffset + ", before correction: " + endOffset);
 				}
 				if (correctedStartOffset < lastOffset) {
-					failAlways("start offset went backwards: "
-							+ correctedStartOffset + ", before correction: "
+					failAlways("start offset went backwards: " + correctedStartOffset + ", before correction: "
 							+ startOffset + ", lastOffset: " + lastOffset);
 				}
 				lastOffset = correctedStartOffset;
 				if (correctedEndOffset < correctedStartOffset) {
-					failAlways("end offset: " + correctedEndOffset
-							+ " is before start offset: "
-							+ correctedStartOffset);
+					failAlways(
+							"end offset: " + correctedEndOffset + " is before start offset: " + correctedStartOffset);
 				}
 				offsetAtt.setOffset(correctedStartOffset, correctedEndOffset);
 				if (state == -1 || runAutomaton.isAccept(state)) {
@@ -238,14 +230,12 @@ public class MockTokenizer extends Tokenizer {
 				if (ch2 >= 0) {
 					off++;
 					if (!Character.isLowSurrogate((char) ch2)) {
-						failAlways("unpaired high surrogate: "
-								+ Integer.toHexString(ch) + ", followed by: "
+						failAlways("unpaired high surrogate: " + Integer.toHexString(ch) + ", followed by: "
 								+ Integer.toHexString(ch2));
 					}
 					return Character.toCodePoint((char) ch, (char) ch2);
 				} else {
-					failAlways("stream ends with unpaired high surrogate: "
-							+ Integer.toHexString(ch));
+					failAlways("stream ends with unpaired high surrogate: " + Integer.toHexString(ch));
 				}
 			}
 			return ch;
@@ -281,7 +271,7 @@ public class MockTokenizer extends Tokenizer {
 
 	protected boolean isTokenChar(int c) {
 		if (state < 0) {
-			state = runAutomaton.getInitialState();
+			state = 0;
 		}
 		state = runAutomaton.step(state, c);
 		if (state < 0) {
@@ -299,7 +289,7 @@ public class MockTokenizer extends Tokenizer {
 	public void reset() throws IOException {
 		try {
 			super.reset();
-			state = runAutomaton.getInitialState();
+			state = 0;
 			lastOffset = off = 0;
 			bufferedCodePoint = -1;
 			if (streamState == State.RESET) {

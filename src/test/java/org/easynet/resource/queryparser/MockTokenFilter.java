@@ -1,5 +1,3 @@
-package org.easynet.resource.queryparser;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.easynet.resource.queryparser;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.easynet.resource.queryparser;
 
 import static org.apache.lucene.util.automaton.Automata.makeEmpty;
 import static org.apache.lucene.util.automaton.Automata.makeString;
@@ -27,8 +26,8 @@ import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
-import org.apache.lucene.util.automaton.Operations;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
+import org.apache.lucene.util.automaton.Operations;
 
 /**
  * A tokenfilter for testing that removes terms accepted by a DFA.
@@ -40,23 +39,17 @@ import org.apache.lucene.util.automaton.CharacterRunAutomaton;
  */
 public final class MockTokenFilter extends TokenFilter {
 	/** Empty set of stopwords */
-	public static final CharacterRunAutomaton EMPTY_STOPSET = new CharacterRunAutomaton(
-			makeEmpty());
+	public static final CharacterRunAutomaton EMPTY_STOPSET = new CharacterRunAutomaton(makeEmpty());
 
 	/** Set of common english stopwords */
 	public static final CharacterRunAutomaton ENGLISH_STOPSET = new CharacterRunAutomaton(
-			Operations.union(Arrays.asList(makeString("a"), makeString("an"),
-					makeString("and"), makeString("are"), makeString("as"),
-					makeString("at"), makeString("be"), makeString("but"),
-					makeString("by"), makeString("for"), makeString("if"),
-					makeString("in"), makeString("into"), makeString("is"),
-					makeString("it"), makeString("no"), makeString("not"),
-					makeString("of"), makeString("on"), makeString("or"),
-					makeString("such"), makeString("that"), makeString("the"),
-					makeString("their"), makeString("then"),
-					makeString("there"), makeString("these"),
-					makeString("they"), makeString("this"), makeString("to"),
-					makeString("was"), makeString("will"), makeString("with"))));
+			Operations.union(Arrays.asList(makeString("a"), makeString("an"), makeString("and"), makeString("are"),
+					makeString("as"), makeString("at"), makeString("be"), makeString("but"), makeString("by"),
+					makeString("for"), makeString("if"), makeString("in"), makeString("into"), makeString("is"),
+					makeString("it"), makeString("no"), makeString("not"), makeString("of"), makeString("on"),
+					makeString("or"), makeString("such"), makeString("that"), makeString("the"), makeString("their"),
+					makeString("then"), makeString("there"), makeString("these"), makeString("they"),
+					makeString("this"), makeString("to"), makeString("was"), makeString("will"), makeString("with"))));
 
 	private final CharacterRunAutomaton filter;
 
@@ -87,8 +80,7 @@ public final class MockTokenFilter extends TokenFilter {
 		skippedPositions = 0;
 		while (input.incrementToken()) {
 			if (!filter.run(termAtt.buffer(), 0, termAtt.length())) {
-				posIncrAtt.setPositionIncrement(posIncrAtt
-						.getPositionIncrement() + skippedPositions);
+				posIncrAtt.setPositionIncrement(posIncrAtt.getPositionIncrement() + skippedPositions);
 				return true;
 			}
 			skippedPositions += posIncrAtt.getPositionIncrement();
@@ -100,8 +92,7 @@ public final class MockTokenFilter extends TokenFilter {
 	@Override
 	public void end() throws IOException {
 		super.end();
-		posIncrAtt.setPositionIncrement(posIncrAtt.getPositionIncrement()
-				+ skippedPositions);
+		posIncrAtt.setPositionIncrement(posIncrAtt.getPositionIncrement() + skippedPositions);
 	}
 
 	@Override

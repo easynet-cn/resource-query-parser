@@ -14,27 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.easynet.resource.queryparser;
-
-import java.io.IOException;
-import java.io.StringReader;
-import java.text.DateFormat;
-import java.util.*;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
-import org.apache.lucene.document.DateTools;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.*;
-import org.apache.lucene.search.BooleanQuery.TooManyClauses;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.QueryBuilder;
-import org.apache.lucene.util.automaton.RegExp;
 
 import static org.apache.lucene.util.automaton.Operations.DEFAULT_MAX_DETERMINIZED_STATES;
 
+import java.io.StringReader;
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.document.DateTools;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BooleanQuery.TooManyClauses;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.MultiPhraseQuery;
+import org.apache.lucene.search.MultiTermQuery;
+import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PrefixQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.RegexpQuery;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.search.WildcardQuery;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.QueryBuilder;
+import org.apache.lucene.util.automaton.RegExp;
 import org.easynet.resource.queryparser.QueryParser.Operator;
 
 /**
@@ -42,13 +58,6 @@ import org.easynet.resource.queryparser.QueryParser.Operator;
  * separate the majority of the Java code from the .jj grammar file.
  */
 public abstract class QueryParserBase extends QueryBuilder {
-
-	/**
-	 * Do not catch this exception in your code, it means you are using methods
-	 * that you should no longer use.
-	 */
-	public static class MethodRemovedUseAnother extends Throwable {
-	}
 
 	static final int CONJ_NONE = 0;
 	static final int CONJ_AND = 1;
@@ -119,8 +128,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 	public abstract Query TopLevelQuery(String field) throws ParseException;
 
 	/**
-	 * Parses a query string, returning a {@link org.apache.lucene.search.Query}
-	 * .
+	 * Parses a query string, returning a
+	 * {@link org.apache.lucene.search.Query}.
 	 * 
 	 * @param query
 	 *            the query string to be parsed.
@@ -132,16 +141,14 @@ public abstract class QueryParserBase extends QueryBuilder {
 		try {
 			// TopLevelQuery is a Query followed by the end-of-input (EOF)
 			Query res = TopLevelQuery(field);
-			return res != null ? res : newBooleanQuery(false);
+			return res != null ? res : newBooleanQuery().build();
 		} catch (ParseException | TokenMgrError tme) {
 			// rethrow to include the original query:
-			ParseException e = new ParseException("Cannot parse '" + query
-					+ "': " + tme.getMessage());
+			ParseException e = new ParseException("Cannot parse '" + query + "': " + tme.getMessage());
 			e.initCause(tme);
 			throw e;
 		} catch (BooleanQuery.TooManyClauses tmc) {
-			ParseException e = new ParseException("Cannot parse '" + query
-					+ "': too many boolean clauses");
+			ParseException e = new ParseException("Cannot parse '" + query + "': too many boolean clauses");
 			e.initCause(tmc);
 			throw e;
 		}
@@ -242,8 +249,8 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	/**
-	 * Sets the boolean operator of the QueryParser. In default mode (
-	 * <code>OR_OPERATOR</code>) terms without any modifiers are considered
+	 * Sets the boolean operator of the QueryParser. In default mode
+	 * (<code>OR_OPERATOR</code>) terms without any modifiers are considered
 	 * optional: for example <code>capital of Hungary</code> is equal to
 	 * <code>capital OR of OR Hungary</code>.<br>
 	 * In <code>AND_OPERATOR</code> mode terms are considered to be in
@@ -326,8 +333,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * Sets the default date resolution used by RangeQueries for fields for
 	 * which no specific date resolutions has been set. Field specific
 	 * resolutions can be set with
-	 * {@link #setDateResolution(String, org.apache.lucene.document.DateTools.Resolution)}
-	 * .
+	 * {@link #setDateResolution(String, org.apache.lucene.document.DateTools.Resolution)}.
 	 *
 	 * @param dateResolution
 	 *            the default date resolution to set
@@ -344,10 +350,9 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @param dateResolution
 	 *            date resolution to set
 	 */
-	public void setDateResolution(String fieldName,
-			DateTools.Resolution dateResolution) {
+	public void setDateResolution(String fieldName, DateTools.Resolution dateResolution) {
 		if (fieldName == null) {
-			throw new IllegalArgumentException("Field cannot be null.");
+			throw new IllegalArgumentException("Field must not be null.");
 		}
 
 		if (fieldToDateResolution == null) {
@@ -366,7 +371,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 */
 	public DateTools.Resolution getDateResolution(String fieldName) {
 		if (fieldName == null) {
-			throw new IllegalArgumentException("Field cannot be null.");
+			throw new IllegalArgumentException("Field must not be null.");
 		}
 
 		if (fieldToDateResolution == null) {
@@ -425,8 +430,11 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return maxDeterminizedStates;
 	}
 
-	protected void addClause(List<BooleanClause> clauses, int conj, int mods,
-			Query q) {
+	public List<FieldText> getFieldTexts() {
+		return fieldTexts;
+	}
+
+	protected void addClause(List<BooleanClause> clauses, int conj, int mods, Query q) {
 		boolean required, prohibited;
 
 		// If this term is introduced by AND, make the preceding term required,
@@ -434,7 +442,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		if (clauses.size() > 0 && conj == CONJ_AND) {
 			BooleanClause c = clauses.get(clauses.size() - 1);
 			if (!c.isProhibited())
-				c.setOccur(BooleanClause.Occur.MUST);
+				clauses.set(clauses.size() - 1, new BooleanClause(c.getQuery(), Occur.MUST));
 		}
 
 		if (clauses.size() > 0 && operator == AND_OPERATOR && conj == CONJ_OR) {
@@ -447,7 +455,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 			// this modification a OR b would parsed as +a OR b
 			BooleanClause c = clauses.get(clauses.size() - 1);
 			if (!c.isProhibited())
-				c.setOccur(BooleanClause.Occur.SHOULD);
+				clauses.set(clauses.size() - 1, new BooleanClause(c.getQuery(), Occur.SHOULD));
 		}
 
 		// We might have been passed a null query; the term might have been
@@ -477,16 +485,54 @@ public abstract class QueryParserBase extends QueryBuilder {
 		else if (!required && prohibited)
 			clauses.add(newBooleanClause(q, BooleanClause.Occur.MUST_NOT));
 		else
-			throw new RuntimeException(
-					"Clause cannot be both required and prohibited");
+			throw new RuntimeException("Clause cannot be both required and prohibited");
+	}
+
+	/**
+	 * Adds clauses generated from analysis over text containing whitespace.
+	 * There are no operators, so the query's clauses can either be MUST (if the
+	 * default operator is AND) or SHOULD (default OR).
+	 *
+	 * If all of the clauses in the given Query are TermQuery-s, this method
+	 * flattens the result by adding the TermQuery-s individually to the output
+	 * clause list; otherwise, the given Query is added as a single clause
+	 * including its nested clauses.
+	 */
+	protected void addMultiTermClauses(List<BooleanClause> clauses, Query q) {
+		// We might have been passed a null query; the term might have been
+		// filtered away by the analyzer.
+		if (q == null) {
+			return;
+		}
+		boolean allNestedTermQueries = false;
+		if (q instanceof BooleanQuery) {
+			allNestedTermQueries = true;
+			for (BooleanClause clause : ((BooleanQuery) q).clauses()) {
+				if (!(clause.getQuery() instanceof TermQuery)) {
+					allNestedTermQueries = false;
+					break;
+				}
+			}
+		}
+		if (allNestedTermQueries) {
+			clauses.addAll(((BooleanQuery) q).clauses());
+		} else {
+			BooleanClause.Occur occur = operator == OR_OPERATOR ? BooleanClause.Occur.SHOULD : BooleanClause.Occur.MUST;
+			if (q instanceof BooleanQuery) {
+				for (BooleanClause clause : ((BooleanQuery) q).clauses()) {
+					clauses.add(newBooleanClause(clause.getQuery(), occur));
+				}
+			} else {
+				clauses.add(newBooleanClause(q, occur));
+			}
+		}
 	}
 
 	/**
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getFieldQuery(String field, String queryText, boolean quoted)
-			throws ParseException {
+	protected Query getFieldQuery(String field, String queryText, boolean quoted) throws ParseException {
 		return newFieldQuery(getAnalyzer(), field, queryText, quoted);
 	}
 
@@ -494,12 +540,10 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query newFieldQuery(Analyzer analyzer, String field,
-			String queryText, boolean quoted) throws ParseException {
-		BooleanClause.Occur occur = operator == Operator.AND ? BooleanClause.Occur.MUST
-				: BooleanClause.Occur.SHOULD;
-		return createFieldQuery(analyzer, occur, field, queryText, quoted
-				|| autoGeneratePhraseQueries, phraseSlop);
+	protected Query newFieldQuery(Analyzer analyzer, String field, String queryText, boolean quoted)
+			throws ParseException {
+		BooleanClause.Occur occur = operator == Operator.AND ? BooleanClause.Occur.MUST : BooleanClause.Occur.SHOULD;
+		return createFieldQuery(analyzer, occur, field, queryText, quoted || autoGeneratePhraseQueries, phraseSlop);
 	}
 
 	/**
@@ -511,22 +555,32 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getFieldQuery(String field, String queryText, int slop)
-			throws ParseException {
+	protected Query getFieldQuery(String field, String queryText, int slop) throws ParseException {
 		Query query = getFieldQuery(field, queryText, true);
 
 		if (query instanceof PhraseQuery) {
-			((PhraseQuery) query).setSlop(slop);
-		}
-		if (query instanceof MultiPhraseQuery) {
-			((MultiPhraseQuery) query).setSlop(slop);
+			PhraseQuery.Builder builder = new PhraseQuery.Builder();
+			builder.setSlop(slop);
+			PhraseQuery pq = (PhraseQuery) query;
+			org.apache.lucene.index.Term[] terms = pq.getTerms();
+			int[] positions = pq.getPositions();
+			for (int i = 0; i < terms.length; ++i) {
+				builder.add(terms[i], positions[i]);
+			}
+			query = builder.build();
+		} else if (query instanceof MultiPhraseQuery) {
+			MultiPhraseQuery mpq = (MultiPhraseQuery) query;
+
+			if (slop != mpq.getSlop()) {
+				query = new MultiPhraseQuery.Builder(mpq).setSlop(slop).build();
+			}
 		}
 
 		return query;
 	}
 
-	protected Query getRangeQuery(String field, String part1, String part2,
-			boolean startInclusive, boolean endInclusive) throws ParseException {
+	protected Query getRangeQuery(String field, String part1, String part2, boolean startInclusive,
+			boolean endInclusive) throws ParseException {
 		if (lowercaseExpandedTerms) {
 			part1 = part1 == null ? null : part1.toLowerCase(locale);
 			part2 = part2 == null ? null : part2.toLowerCase(locale);
@@ -598,8 +652,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @return new RegexpQuery instance
 	 */
 	protected Query newRegexpQuery(Term regexp) {
-		RegexpQuery query = new RegexpQuery(regexp, RegExp.ALL,
-				maxDeterminizedStates);
+		RegexpQuery query = new RegexpQuery(regexp, RegExp.ALL, maxDeterminizedStates);
 		query.setRewriteMethod(multiTermRewriteMethod);
 		return query;
 	}
@@ -615,47 +668,11 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 *            prefix length
 	 * @return new FuzzyQuery Instance
 	 */
-	protected Query newFuzzyQuery(Term term, float minimumSimilarity,
-			int prefixLength) {
+	protected Query newFuzzyQuery(Term term, float minimumSimilarity, int prefixLength) {
 		// FuzzyQuery doesn't yet allow constant score rewrite
 		String text = term.text();
-		int numEdits = FuzzyQuery.floatToEdits(minimumSimilarity,
-				text.codePointCount(0, text.length()));
+		int numEdits = FuzzyQuery.floatToEdits(minimumSimilarity, text.codePointCount(0, text.length()));
 		return new FuzzyQuery(term, numEdits, prefixLength);
-	}
-
-	// TODO: Should this be protected instead?
-	private BytesRef analyzeMultitermTerm(String field, String part) {
-		return analyzeMultitermTerm(field, part, getAnalyzer());
-	}
-
-	protected BytesRef analyzeMultitermTerm(String field, String part,
-			Analyzer analyzerIn) {
-		if (analyzerIn == null)
-			analyzerIn = getAnalyzer();
-
-		try (TokenStream source = analyzerIn.tokenStream(field, part)) {
-			source.reset();
-
-			TermToBytesRefAttribute termAtt = source
-					.getAttribute(TermToBytesRefAttribute.class);
-			BytesRef bytes = termAtt.getBytesRef();
-
-			if (!source.incrementToken())
-				throw new IllegalArgumentException(
-						"analyzer returned no terms for multiTerm term: "
-								+ part);
-			termAtt.fillBytesRef();
-			if (source.incrementToken())
-				throw new IllegalArgumentException(
-						"analyzer returned too many terms for multiTerm term: "
-								+ part);
-			source.end();
-			return BytesRef.deepCopyOf(bytes);
-		} catch (IOException e) {
-			throw new RuntimeException("Error analyzing multiTerm term: "
-					+ part, e);
-		}
 	}
 
 	/**
@@ -673,27 +690,24 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 *            true if the end of the range is inclusive
 	 * @return new {@link TermRangeQuery} instance
 	 */
-	protected Query newRangeQuery(String field, String part1, String part2,
-			boolean startInclusive, boolean endInclusive) {
+	protected Query newRangeQuery(String field, String part1, String part2, boolean startInclusive,
+			boolean endInclusive) {
 		final BytesRef start;
 		final BytesRef end;
 
 		if (part1 == null) {
 			start = null;
 		} else {
-			start = analyzeRangeTerms ? analyzeMultitermTerm(field, part1)
-					: new BytesRef(part1);
+			start = analyzeRangeTerms ? getAnalyzer().normalize(field, part1) : new BytesRef(part1);
 		}
 
 		if (part2 == null) {
 			end = null;
 		} else {
-			end = analyzeRangeTerms ? analyzeMultitermTerm(field, part2)
-					: new BytesRef(part2);
+			end = analyzeRangeTerms ? getAnalyzer().normalize(field, part2) : new BytesRef(part2);
 		}
 
-		final TermRangeQuery query = new TermRangeQuery(field, start, end,
-				startInclusive, endInclusive);
+		final TermRangeQuery query = new TermRangeQuery(field, start, end, startInclusive, endInclusive);
 
 		query.setRewriteMethod(multiTermRewriteMethod);
 		return query;
@@ -716,7 +730,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @return new WildcardQuery instance
 	 */
 	protected Query newWildcardQuery(Term t) {
-		WildcardQuery query = new WildcardQuery(t);
+		WildcardQuery query = new WildcardQuery(t, maxDeterminizedStates);
 		query.setRewriteMethod(multiTermRewriteMethod);
 		return query;
 	}
@@ -736,38 +750,15 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getBooleanQuery(List<BooleanClause> clauses)
-			throws ParseException {
-		return getBooleanQuery(clauses, false);
-	}
-
-	/**
-	 * Factory method for generating query, given a set of clauses. By default
-	 * creates a boolean query composed of clauses passed in.
-	 *
-	 * Can be overridden by extending classes, to modify query being returned.
-	 *
-	 * @param clauses
-	 *            List that contains
-	 *            {@link org.apache.lucene.search.BooleanClause} instances to
-	 *            join.
-	 * @param disableCoord
-	 *            true if coord scoring should be disabled.
-	 *
-	 * @return Resulting {@link org.apache.lucene.search.Query} object.
-	 * @exception org.apache.lucene.queryparser.classic.ParseException
-	 *                throw in overridden method to disallow
-	 */
-	protected Query getBooleanQuery(List<BooleanClause> clauses,
-			boolean disableCoord) throws ParseException {
+	protected Query getBooleanQuery(List<BooleanClause> clauses) throws ParseException {
 		if (clauses.size() == 0) {
 			return null; // all clause words were filtered away by the analyzer.
 		}
-		BooleanQuery query = newBooleanQuery(disableCoord);
+		BooleanQuery.Builder query = newBooleanQuery();
 		for (final BooleanClause clause : clauses) {
 			query.add(clause);
 		}
-		return query;
+		return query.build();
 	}
 
 	/**
@@ -794,16 +785,13 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getWildcardQuery(String field, String termStr)
-			throws ParseException {
+	protected Query getWildcardQuery(String field, String termStr) throws ParseException {
 		if ("*".equals(field)) {
 			if ("*".equals(termStr))
 				return newMatchAllDocsQuery();
 		}
-		if (!allowLeadingWildcard
-				&& (termStr.startsWith("*") || termStr.startsWith("?")))
-			throw new ParseException(
-					"'*' or '?' not allowed as first character in WildcardQuery");
+		if (!allowLeadingWildcard && (termStr.startsWith("*") || termStr.startsWith("?")))
+			throw new ParseException("'*' or '?' not allowed as first character in WildcardQuery");
 		if (lowercaseExpandedTerms) {
 			termStr = termStr.toLowerCase(locale);
 		}
@@ -833,8 +821,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getRegexpQuery(String field, String termStr)
-			throws ParseException {
+	protected Query getRegexpQuery(String field, String termStr) throws ParseException {
 		if (lowercaseExpandedTerms) {
 			termStr = termStr.toLowerCase(locale);
 		}
@@ -868,11 +855,9 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getPrefixQuery(String field, String termStr)
-			throws ParseException {
+	protected Query getPrefixQuery(String field, String termStr) throws ParseException {
 		if (!allowLeadingWildcard && termStr.startsWith("*"))
-			throw new ParseException(
-					"'*' not allowed as first character in PrefixQuery");
+			throw new ParseException("'*' not allowed as first character in PrefixQuery");
 		if (lowercaseExpandedTerms) {
 			termStr = termStr.toLowerCase(locale);
 		}
@@ -895,8 +880,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 	 * @exception org.apache.lucene.queryparser.classic.ParseException
 	 *                throw in overridden method to disallow
 	 */
-	protected Query getFuzzyQuery(String field, String termStr,
-			float minSimilarity) throws ParseException {
+	protected Query getFuzzyQuery(String field, String termStr, float minSimilarity) throws ParseException {
 		if (lowercaseExpandedTerms) {
 			termStr = termStr.toLowerCase(locale);
 		}
@@ -905,21 +889,17 @@ public abstract class QueryParserBase extends QueryBuilder {
 	}
 
 	// extracted from the .jj grammar
-	Query handleBareTokenQuery(String qfield, Token term, Token fuzzySlop,
-			boolean prefix, boolean wildcard, boolean fuzzy, boolean regexp)
-			throws ParseException {
+	Query handleBareTokenQuery(String qfield, Token term, Token fuzzySlop, boolean prefix, boolean wildcard,
+			boolean fuzzy, boolean regexp) throws ParseException {
 		Query q;
 
 		String termImage = new String(term.image);
 		if (wildcard) {
 			q = getWildcardQuery(qfield, term.image);
 		} else if (prefix) {
-			q = getPrefixQuery(
-					qfield,
-					new String(term.image.substring(0, term.image.length() - 1)));
+			q = getPrefixQuery(qfield, new String(term.image.substring(0, term.image.length() - 1)));
 		} else if (regexp) {
-			q = getRegexpQuery(qfield,
-					term.image.substring(1, term.image.length() - 1));
+			q = getRegexpQuery(qfield, term.image.substring(1, term.image.length() - 1));
 		} else if (fuzzy) {
 			q = handleBareFuzzy(qfield, fuzzySlop, termImage);
 		} else {
@@ -928,8 +908,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 		return q;
 	}
 
-	Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage)
-			throws ParseException {
+	Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage) throws ParseException {
 		Query q;
 		float fms = fuzzyMinSim;
 		try {
@@ -937,19 +916,16 @@ public abstract class QueryParserBase extends QueryBuilder {
 		} catch (Exception ignored) {
 		}
 		if (fms < 0.0f) {
-			throw new ParseException(
-					"Minimum similarity for a FuzzyQuery has to be between 0.0f and 1.0f !");
+			throw new ParseException("Minimum similarity for a FuzzyQuery has to be between 0.0f and 1.0f !");
 		} else if (fms >= 1.0f && fms != (int) fms) {
-			throw new ParseException(
-					"Fractional edit distances are not allowed!");
+			throw new ParseException("Fractional edit distances are not allowed!");
 		}
 		q = getFuzzyQuery(qfield, termImage, fms);
 		return q;
 	}
 
 	// extracted from the .jj grammar
-	Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop)
-			throws ParseException {
+	Query handleQuotedTerm(String qfield, Token term, Token fuzzySlop) throws ParseException {
 		int s = phraseSlop; // default
 		if (fuzzySlop != null) {
 			try {
@@ -957,8 +933,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 			} catch (Exception ignored) {
 			}
 		}
-		return getFieldQuery(qfield,
-				new String(term.image.substring(1, term.image.length() - 1)), s);
+		return getFieldQuery(qfield, new String(term.image.substring(1, term.image.length() - 1)), s);
 	}
 
 	// extracted from the .jj grammar
@@ -976,7 +951,7 @@ public abstract class QueryParserBase extends QueryBuilder {
 
 			// avoid boosting null queries, such as those caused by stop words
 			if (q != null) {
-				q.setBoost(f);
+				q = new BoostQuery(q, f);
 			}
 		}
 		return q;
@@ -985,5 +960,4 @@ public abstract class QueryParserBase extends QueryBuilder {
 	protected String getField(Token field) {
 		return field.image.toLowerCase();
 	}
-
 }

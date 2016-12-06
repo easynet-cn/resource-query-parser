@@ -1,6 +1,3 @@
-// FastCharStream.java
-package org.easynet.resource.queryparser;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +13,11 @@ package org.easynet.resource.queryparser;
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *  
  */
+package org.easynet.resource.queryparser;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.Reader;
 
 /**
  * An efficient implementation of JavaCC's CharStream interface.
@@ -27,7 +25,7 @@ import java.io.*;
  * Note that this does not do line-number counting, but instead keeps track of
  * the character position of the token in the input, as required by Lucene's
  * {@link org.apache.lucene.analysis.Token} API.
- * */
+ */
 public final class FastCharStream implements CharStream {
 	char[] buffer = null;
 
@@ -72,7 +70,7 @@ public final class FastCharStream implements CharStream {
 		tokenStart = 0;
 
 		int charsRead = // fill space in buffer
-		input.read(buffer, newPosition, buffer.length - newPosition);
+				input.read(buffer, newPosition, buffer.length - newPosition);
 		if (charsRead == -1)
 			throw new IOException("read past eof");
 		else

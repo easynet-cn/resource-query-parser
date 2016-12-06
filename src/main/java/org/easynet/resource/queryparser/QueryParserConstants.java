@@ -39,7 +39,7 @@ public interface QueryParserConstants {
   /** RegularExpression Id. */
   int RPAREN = 15;
   /** RegularExpression Id. */
-  int EQUAL = 16;
+  int COLON = 16;
   /** RegularExpression Id. */
   int STAR = 17;
   /** RegularExpression Id. */
@@ -98,7 +98,7 @@ public interface QueryParserConstants {
     "<BAREOPER>",
     "\"(\"",
     "\")\"",
-    "\"=\"",
+    "<COLON>",
     "\"*\"",
     "\"^\"",
     "<QUOTED>",

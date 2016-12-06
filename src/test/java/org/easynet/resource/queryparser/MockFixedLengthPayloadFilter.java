@@ -1,5 +1,3 @@
-package org.easynet.resource.queryparser;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.easynet.resource.queryparser;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.easynet.resource.queryparser;
 
 import java.io.IOException;
 import java.util.Random;
@@ -29,29 +28,29 @@ import org.apache.lucene.util.BytesRef;
  * TokenFilter that adds random fixed-length payloads.
  */
 public final class MockFixedLengthPayloadFilter extends TokenFilter {
-  private final PayloadAttribute payloadAtt = addAttribute(PayloadAttribute.class);
-  private final Random random;
-  private final byte[] bytes;
-  private final BytesRef payload;
+	private final PayloadAttribute payloadAtt = addAttribute(PayloadAttribute.class);
+	private final Random random;
+	private final byte[] bytes;
+	private final BytesRef payload;
 
 	public MockFixedLengthPayloadFilter(Random random, TokenStream in, int length) {
-    super(in);
-    if (length < 0) {
-      throw new IllegalArgumentException("length must be >= 0");
-    }
-    this.random = random;
-    this.bytes = new byte[length];
-    this.payload = new BytesRef(bytes);
-  }
+		super(in);
+		if (length < 0) {
+			throw new IllegalArgumentException("length must be >= 0");
+		}
+		this.random = random;
+		this.bytes = new byte[length];
+		this.payload = new BytesRef(bytes);
+	}
 
-  @Override
-  public boolean incrementToken() throws IOException {
-    if (input.incrementToken()) {
-      random.nextBytes(bytes);
-      payloadAtt.setPayload(payload);
-      return true;
-    } else {
-      return false;
-    }
-  }
+	@Override
+	public boolean incrementToken() throws IOException {
+		if (input.incrementToken()) {
+			random.nextBytes(bytes);
+			payloadAtt.setPayload(payload);
+			return true;
+		} else {
+			return false;
+		}
+	}
 }

@@ -17,39 +17,27 @@
 package org.easynet.resource.queryparser;
 
 import java.io.IOException;
-import java.util.Random;
 
+import org.apache.lucene.analysis.CharacterUtils;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
-import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 
-/**
- * TokenFilter that adds random variable-length payloads.
- */
-public final class MockVariableLengthPayloadFilter extends TokenFilter {
-	private static final int MAXLENGTH = 129;
+/** A lowercasing {@link TokenFilter}. */
+public final class MockLowerCaseFilter extends TokenFilter {
+	private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
 
-	private final PayloadAttribute payloadAtt = addAttribute(PayloadAttribute.class);
-	private final Random random;
-	private final byte[] bytes = new byte[MAXLENGTH];
-	private final BytesRef payload;
-
-	public MockVariableLengthPayloadFilter(Random random, TokenStream in) {
+	/** Sole constructor. */
+	public MockLowerCaseFilter(TokenStream in) {
 		super(in);
-		this.random = random;
-		this.payload = new BytesRef(bytes);
 	}
 
 	@Override
-	public boolean incrementToken() throws IOException {
+	public final boolean incrementToken() throws IOException {
 		if (input.incrementToken()) {
-			random.nextBytes(bytes);
-			payload.length = random.nextInt(MAXLENGTH);
-			payloadAtt.setPayload(payload);
+			CharacterUtils.toLowerCase(termAtt.buffer(), 0, termAtt.length());
 			return true;
-		} else {
+		} else
 			return false;
-		}
 	}
 }

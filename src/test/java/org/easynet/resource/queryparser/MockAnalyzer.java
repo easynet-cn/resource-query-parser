@@ -1,5 +1,3 @@
-package org.easynet.resource.queryparser;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.easynet.resource.queryparser;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.easynet.resource.queryparser;
 
-import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenFilter;
+import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 
 /**
@@ -71,8 +70,8 @@ public final class MockAnalyzer extends Analyzer {
 	 *            DFA describing how terms should be filtered (set of stopwords,
 	 *            etc)
 	 */
-	public MockAnalyzer(Random random, CharacterRunAutomaton runAutomaton,
-			boolean lowerCase, CharacterRunAutomaton filter) {
+	public MockAnalyzer(Random random, CharacterRunAutomaton runAutomaton, boolean lowerCase,
+			CharacterRunAutomaton filter) {
 		super(PER_FIELD_REUSE_STRATEGY);
 		// TODO: this should be solved in a different way; Random should not be
 		// shared (!).
@@ -88,8 +87,7 @@ public final class MockAnalyzer extends Analyzer {
 	 * MockAnalyzer(random, runAutomaton, lowerCase,
 	 * MockTokenFilter.EMPTY_STOPSET, false}).
 	 */
-	public MockAnalyzer(Random random, CharacterRunAutomaton runAutomaton,
-			boolean lowerCase) {
+	public MockAnalyzer(Random random, CharacterRunAutomaton runAutomaton, boolean lowerCase) {
 		this(random, runAutomaton, lowerCase, MockTokenFilter.EMPTY_STOPSET);
 	}
 
@@ -107,16 +105,22 @@ public final class MockAnalyzer extends Analyzer {
 
 	@Override
 	public TokenStreamComponents createComponents(String fieldName) {
-		MockTokenizer tokenizer = new MockTokenizer(runAutomaton, lowerCase,
-				maxTokenLength);
+		MockTokenizer tokenizer = new MockTokenizer(runAutomaton, lowerCase, maxTokenLength);
 		tokenizer.setEnableChecks(enableChecks);
 		MockTokenFilter filt = new MockTokenFilter(tokenizer, filter);
-		return new TokenStreamComponents(tokenizer, maybePayload(filt,
-				fieldName));
+		return new TokenStreamComponents(tokenizer, maybePayload(filt, fieldName));
 	}
 
-	private synchronized TokenFilter maybePayload(TokenFilter stream,
-			String fieldName) {
+	@Override
+	protected TokenStream normalize(String fieldName, TokenStream in) {
+		TokenStream result = in;
+		if (lowerCase) {
+			result = new MockLowerCaseFilter(result);
+		}
+		return result;
+	}
+
+	private synchronized TokenFilter maybePayload(TokenFilter stream, String fieldName) {
 		Integer val = previousMappings.get(fieldName);
 		if (val == null) {
 			val = -1; // no payloads
@@ -135,11 +139,9 @@ public final class MockAnalyzer extends Analyzer {
 			}
 			if (VERBOSE) {
 				if (val == Integer.MAX_VALUE) {
-					System.out.println("MockAnalyzer: field=" + fieldName
-							+ " gets variable length payloads");
+					System.out.println("MockAnalyzer: field=" + fieldName + " gets variable length payloads");
 				} else if (val != -1) {
-					System.out.println("MockAnalyzer: field=" + fieldName
-							+ " gets fixed length=" + val + " payloads");
+					System.out.println("MockAnalyzer: field=" + fieldName + " gets fixed length=" + val + " payloads");
 				}
 			}
 			previousMappings.put(fieldName, val); // save it so we are
