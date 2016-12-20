@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 import java.io.IOException;
 
@@ -34,9 +34,14 @@ import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.SynonymQuery;
 import org.apache.lucene.search.TermQuery;
-import org.easynet.resource.queryparser.QueryParser.Operator;
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.easynetcn.resource.queryparser.ParseException;
+import com.easynetcn.resource.queryparser.QueryParser;
+import com.easynetcn.resource.queryparser.QueryParserBase;
+import com.easynetcn.resource.queryparser.Token;
+import com.easynetcn.resource.queryparser.QueryParser.Operator;
 
 /**
  * Tests QueryParser.

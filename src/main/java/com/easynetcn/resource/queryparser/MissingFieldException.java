@@ -1,4 +1,4 @@
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 public class MissingFieldException extends ParseException {
 	private static final long serialVersionUID = 1L;

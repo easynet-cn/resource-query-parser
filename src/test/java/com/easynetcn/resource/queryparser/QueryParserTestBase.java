@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -58,6 +58,7 @@ import com.carrotsearch.randomizedtesting.annotations.ThreadLeakLingering;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope.Scope;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies.Consequence;
+import com.easynetcn.resource.queryparser.QueryParser;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies;
 
 

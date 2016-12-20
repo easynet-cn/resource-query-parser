@@ -1,4 +1,4 @@
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 public class FieldText {
 	private String field;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 import org.apache.lucene.analysis.Analyzer;
 

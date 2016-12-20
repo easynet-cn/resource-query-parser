@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.easynet.resource.queryparser;
+package com.easynetcn.resource.queryparser;
 
 import static org.apache.lucene.util.automaton.Operations.DEFAULT_MAX_DETERMINIZED_STATES;
 
@@ -51,7 +51,8 @@ import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.QueryBuilder;
 import org.apache.lucene.util.automaton.RegExp;
-import org.easynet.resource.queryparser.QueryParser.Operator;
+
+import com.easynetcn.resource.queryparser.QueryParser.Operator;
 
 /**
  * This class is overridden by QueryParser in QueryParser.jj and acts to
