@@ -680,22 +680,6 @@ if (splitOnWhitespace == false) {
     finally { jj_save(2, xla); }
   }
 
-  private boolean jj_3R_3()
- {
-    if (jj_scan_token(TERM)) return true;
-    jj_lookingAhead = true;
-    jj_semLA = getToken(1).kind == TERM && allowedPostMultiTerm(getToken(2).kind);
-    jj_lookingAhead = false;
-    if (!jj_semLA || jj_3R_6()) return true;
-    Token xsp;
-    if (jj_3R_7()) return true;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_7()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
   private boolean jj_3R_4()
  {
     if (jj_scan_token(TERM)) return true;
@@ -741,6 +725,22 @@ if (splitOnWhitespace == false) {
   private boolean jj_3R_7()
  {
     if (jj_scan_token(TERM)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_3()
+ {
+    if (jj_scan_token(TERM)) return true;
+    jj_lookingAhead = true;
+    jj_semLA = getToken(1).kind == TERM && allowedPostMultiTerm(getToken(2).kind);
+    jj_lookingAhead = false;
+    if (!jj_semLA || jj_3R_6()) return true;
+    Token xsp;
+    if (jj_3R_7()) return true;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_7()) { jj_scanpos = xsp; break; }
+    }
     return false;
   }
 
