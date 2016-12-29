@@ -149,7 +149,7 @@ public class TestQueryParser extends QueryParserTestBase {
 		QueryParser qp = new QueryParser("a", new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false)) {
 
 			@Override
-			Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage) throws ParseException {
+			protected Query handleBareFuzzy(String qfield, Token fuzzySlop, String termImage) throws ParseException {
 
 				if (fuzzySlop.image.endsWith("€")) {
 					float fms = fuzzyMinSim;
