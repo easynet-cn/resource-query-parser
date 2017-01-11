@@ -2,7 +2,6 @@ package com.easynetcn.resource.queryparser;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -19,7 +18,6 @@ import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
-import org.apache.lucene.search.PointRangeQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.RegexpQuery;
@@ -489,6 +487,8 @@ public class QueryBuilder {
 			buffer.append(toString((ConstantScoreQuery) query, field));
 		} else if (query instanceof MatchAllDocsQuery) {
 			buffer.append(toString((MatchAllDocsQuery) query, field));
+		} else if (query instanceof SynonymQuery) {
+			buffer.append(toString((SynonymQuery) query, field));
 		} else {
 			buffer.append(query.toString(field));
 		}
