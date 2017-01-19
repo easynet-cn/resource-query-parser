@@ -498,13 +498,11 @@ public class QueryBuilder {
 
 	protected String toString(TermQuery termQuery, String field) {
 		StringBuilder buffer = new StringBuilder();
-		Term term = termQuery.getTerm();
 
-		if (!term.field().equals(field)) {
-			buffer.append(term.field());
-			buffer.append(":");
-		}
-		buffer.append(term.text());
+		buffer.append(field);
+		buffer.append(":");
+		buffer.append(termQuery.getTerm().text());
+
 		return buffer.toString();
 	}
 
@@ -518,6 +516,7 @@ public class QueryBuilder {
 		}
 
 		int i = 0;
+
 		for (BooleanClause c : booleanQuery) {
 			buffer.append(c.getOccur().toString());
 
@@ -534,6 +533,7 @@ public class QueryBuilder {
 			if (i != clauses.size() - 1) {
 				buffer.append(" ");
 			}
+
 			i += 1;
 		}
 
@@ -563,47 +563,52 @@ public class QueryBuilder {
 		return buffer.toString();
 	}
 
-	protected String toString(PhraseQuery phraseQuery, String f) {
+	protected String toString(PhraseQuery phraseQuery, String field) {
 		StringBuilder buffer = new StringBuilder();
 		Term[] terms = phraseQuery.getTerms();
-		String field = terms.length == 0 ? null : terms[0].field();
 		int[] positions = phraseQuery.getPositions();
 		int slop = phraseQuery.getSlop();
 
-		if (field != null && !field.equals(f)) {
-			buffer.append(field);
-			buffer.append(":");
-		}
-
+		buffer.append(field);
+		buffer.append(":");
 		buffer.append("\"");
+
 		final int maxPosition;
+
 		if (positions.length == 0) {
 			maxPosition = -1;
 		} else {
 			maxPosition = positions[positions.length - 1];
 		}
+
 		String[] pieces = new String[maxPosition + 1];
+
 		for (int i = 0; i < terms.length; i++) {
 			int pos = positions[i];
 			String s = pieces[pos];
+
 			if (s == null) {
 				s = (terms[i]).text();
 			} else {
 				s = s + "|" + (terms[i]).text();
 			}
+
 			pieces[pos] = s;
 		}
 		for (int i = 0; i < pieces.length; i++) {
 			if (i > 0) {
 				buffer.append(' ');
 			}
+
 			String s = pieces[i];
+
 			if (s == null) {
 				buffer.append('?');
 			} else {
 				buffer.append(s);
 			}
 		}
+
 		buffer.append("\"");
 
 		if (slop != 0) {
@@ -646,21 +651,25 @@ public class QueryBuilder {
 			int position = positions[i];
 			if (i != 0) {
 				buffer.append(" ");
+
 				for (int j = 1; j < (position - lastPos); j++) {
 					buffer.append("? ");
 				}
 			}
 			if (terms.length > 1) {
 				buffer.append("(");
+
 				for (int j = 0; j < terms.length; j++) {
 					buffer.append(terms[j].text());
 					if (j < terms.length - 1)
 						buffer.append(" ");
 				}
+
 				buffer.append(")");
 			} else {
 				buffer.append(terms[0].text());
 			}
+
 			lastPos = position;
 		}
 		buffer.append("\"");
@@ -682,6 +691,7 @@ public class QueryBuilder {
 			buffer.append(term.field());
 			buffer.append(":");
 		}
+
 		buffer.append(term.text());
 		buffer.append('~');
 		buffer.append(Integer.toString(maxEdits));
@@ -745,6 +755,7 @@ public class QueryBuilder {
 
 		for (int i = 0; i < disjuncts.size(); i++) {
 			Query subquery = disjuncts.get(i);
+
 			if (subquery instanceof BooleanQuery) { // wrap sub-bools in parens
 				buffer.append("(");
 				buffer.append(toString(subquery, field));
@@ -756,6 +767,7 @@ public class QueryBuilder {
 		}
 
 		buffer.append(")");
+
 		if (tieBreakerMultiplier != 0.0f) {
 			buffer.append("~");
 			buffer.append(tieBreakerMultiplier);
@@ -781,7 +793,9 @@ public class QueryBuilder {
 
 			builder.append(toString(termQuery, field));
 		}
+
 		builder.append(")");
+
 		return builder.toString();
 	}
 }
