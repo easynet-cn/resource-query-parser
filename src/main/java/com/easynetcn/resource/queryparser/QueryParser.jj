@@ -122,6 +122,27 @@ public class QueryParser extends QueryParserBase {
   }
 
   /**
+   * Set to true if phrase queries will be automatically generated
+   * when the analyzer returns more than one term from whitespace
+   * delimited text.
+   * NOTE: this behavior may not be suitable for all languages.
+   * <p>
+   * Set to false if phrase queries should only be generated when
+   * surrounded by double quotes.
+   * <p>
+   * The combination splitOnWhitespace=false and autoGeneratePhraseQueries=true
+   * is disallowed.  See <a href="https://issues.apache.org/jira/browse/LUCENE-7533">LUCENE-7533</a>.
+   */
+  @Override
+  public void setAutoGeneratePhraseQueries(boolean value) {
+    if (splitOnWhitespace == false && value == true) {
+      throw new IllegalArgumentException
+          ("setAutoGeneratePhraseQueries(true) is disallowed when getSplitOnWhitespace() == false");
+    }
+    this.autoGeneratePhraseQueries = value;
+  }
+
+  /**
    * @see #setSplitOnWhitespace(boolean)
    */
   public boolean getSplitOnWhitespace() {
@@ -131,8 +152,15 @@ public class QueryParser extends QueryParserBase {
   /**
    * Whether query text should be split on whitespace prior to analysis.
    * Default is <code>{@value #DEFAULT_SPLIT_ON_WHITESPACE}</code>.
+   * <p>
+   * The combination splitOnWhitespace=false and autoGeneratePhraseQueries=true
+   * is disallowed.  See <a href="https://issues.apache.org/jira/browse/LUCENE-7533">LUCENE-7533</a>.
    */
   public void setSplitOnWhitespace(boolean splitOnWhitespace) {
+    if (splitOnWhitespace == false && getAutoGeneratePhraseQueries() == true) {
+      throw new IllegalArgumentException
+          ("setSplitOnWhitespace(false) is disallowed when getAutoGeneratePhraseQueries() == true");
+    }
     this.splitOnWhitespace = splitOnWhitespace;
   }
 
@@ -156,7 +184,7 @@ PARSER_END(QueryParser)
 | <#_TERM_START_CHAR: ( ~[ " ", "\t", "\n", "\r", "\u3000", "+", "-", "!", "(", ")", ":", "^", "=",
                            "[", "]", "\"", "{", "}", "~", "*", "?", "\\", "/", "#" ]
                         | <_ESCAPED_CHAR> ) >
-| <#_TERM_CHAR:       ( <_TERM_START_CHAR> | "-" | "+" | "/" | "!" ) >
+| <#_TERM_CHAR:       ( <_TERM_START_CHAR> | "-" | "+"| "/"| "!" ) >
 | <#_WHITESPACE:      ( " " | "\t" | "\n" | "\r" | "\u3000") >
 | <#_QUOTED_CHAR:     ( ~[ "\"", "\\" ] | <_ESCAPED_CHAR> ) >
 }
@@ -174,7 +202,7 @@ PARSER_END(QueryParser)
 | <BAREOPER:      ("+"|"-"|"!") <_WHITESPACE> >
 | <LPAREN:        "(" >
 | <RPAREN:        ")" >
-| <COLON:         (":" | "=") >
+| <COLON:         ":" | "=" >
 | <STAR:          "*" >
 | <CARAT:         "^" > : Boost
 | <QUOTED:        "\"" (<_QUOTED_CHAR>)* "\"">
@@ -311,8 +339,8 @@ Query Term(String field) : {
       <CARAT> boost=<NUMBER> [ fuzzySlop=<FUZZY_SLOP> { fuzzy=true; } ]
       | fuzzySlop=<FUZZY_SLOP> { fuzzy=true; } [ <CARAT> boost=<NUMBER> ]
     ]
-    { 
-    	fieldTexts.add(new FieldText(new String(field),new String(term.image)));
+    {
+    	fieldTexts.add(new FieldText(new String(field),new String(term.image))); 
     	q = handleBareTokenQuery(field, term, fuzzySlop, prefix, wildcard, fuzzy, regexp); 
     }
 

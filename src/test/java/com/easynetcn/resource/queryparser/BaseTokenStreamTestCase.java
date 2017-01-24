@@ -16,47 +16,45 @@
  */
 package com.easynetcn.resource.queryparser;
 
-import java.util.Random;
+import java.util.*;
 
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.util.AttributeFactory;
 
 import com.carrotsearch.randomizedtesting.RandomizedContext;
 
-/**
- * Base class for all Lucene unit tests that use TokenStreams.
+/** 
+ * Base class for all Lucene unit tests that use TokenStreams. 
  * <p>
- * When writing unit tests for analysis components, it's highly recommended to
- * use the helper methods here (especially in conjunction with
- * {@link MockAnalyzer} or {@link MockTokenizer}), as they contain many
- * assertions and checks to catch bugs.
+ * When writing unit tests for analysis components, it's highly recommended
+ * to use the helper methods here (especially in conjunction with {@link MockAnalyzer} or
+ * {@link MockTokenizer}), as they contain many assertions and checks to 
+ * catch bugs.
  * 
  * @see MockAnalyzer
  * @see MockTokenizer
  */
 public abstract class BaseTokenStreamTestCase {
-	// some helpers to test Analyzers and TokenStreams:
-
-	/** Returns a random AttributeFactory impl */
-	public static AttributeFactory newAttributeFactory(Random random) {
-		switch (random.nextInt(3)) {
-		case 0:
-			return TokenStream.DEFAULT_TOKEN_ATTRIBUTE_FACTORY;
-		case 1:
-			return org.apache.lucene.analysis.Token.TOKEN_ATTRIBUTE_FACTORY;
-		case 2:
-			return AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY;
-		default:
-			throw new AssertionError("Please fix the Random.nextInt() call above");
-		}
-	}
-
-	/** Returns a random AttributeFactory impl */
-	public static AttributeFactory newAttributeFactory() {
-		return newAttributeFactory(random());
-	}
-
-	public static Random random() {
+  /** Returns a random AttributeFactory impl */
+  public static AttributeFactory newAttributeFactory(Random random) {
+    switch (random.nextInt(3)) {
+      case 0:
+        return TokenStream.DEFAULT_TOKEN_ATTRIBUTE_FACTORY;
+      case 1:
+        return org.apache.lucene.analysis.Token.TOKEN_ATTRIBUTE_FACTORY;
+      case 2:
+        return AttributeFactory.DEFAULT_ATTRIBUTE_FACTORY;
+      default:
+        throw new AssertionError("Please fix the Random.nextInt() call above");
+    }
+  }
+  
+  /** Returns a random AttributeFactory impl */
+  public static AttributeFactory newAttributeFactory() {
+    return newAttributeFactory(random());
+  }
+  
+  public static Random random() {
 		return RandomizedContext.current().getRandom();
 	}
 }

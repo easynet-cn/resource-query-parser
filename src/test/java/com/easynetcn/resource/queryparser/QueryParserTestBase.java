@@ -24,7 +24,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Random;
 import java.util.TimeZone;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenFilter;
@@ -34,7 +33,23 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.document.DateTools;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.*;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.MatchNoDocsQuery;
+import org.apache.lucene.search.MultiTermQuery;
+import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PrefixQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.RegexpQuery;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.util.automaton.Automata;
 import org.apache.lucene.util.automaton.CharacterRunAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
@@ -50,17 +65,15 @@ import com.carrotsearch.randomizedtesting.MixWithSuiteName;
 import com.carrotsearch.randomizedtesting.RandomizedContext;
 import com.carrotsearch.randomizedtesting.RandomizedRunner;
 import com.carrotsearch.randomizedtesting.annotations.SeedDecorators;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakAction.Action;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakAction;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakGroup.Group;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakAction.Action;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakGroup;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakGroup.Group;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakLingering;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope.Scope;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies.Consequence;
-import com.easynetcn.resource.queryparser.QueryParser;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakScope.Scope;
 import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies;
-
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies.Consequence;
 
 /**
  * Base Test class for QueryParser subclasses
@@ -68,14 +81,14 @@ import com.carrotsearch.randomizedtesting.annotations.ThreadLeakZombies;
 // TODO: it would be better to refactor the parts that are specific really
 // to the core QP and subclass/use the parts that are not in the flexible QP
 @RunWith(RandomizedRunner.class)
-@SeedDecorators({MixWithSuiteName.class}) // See LUCENE-3995 for rationale.
+@SeedDecorators({ MixWithSuiteName.class }) // See LUCENE-3995 for rationale.
 @ThreadLeakScope(Scope.SUITE)
 @ThreadLeakGroup(Group.MAIN)
-@ThreadLeakAction({Action.WARN, Action.INTERRUPT})
-@ThreadLeakLingering(linger = 20000) // Wait long for leaked threads to complete before failure. zk needs this.
+@ThreadLeakAction({ Action.WARN, Action.INTERRUPT })
+@ThreadLeakLingering(linger = 20000) // Wait long for leaked threads to complete
+										// before failure. zk needs this.
 @ThreadLeakZombies(Consequence.IGNORE_REMAINING_TESTS)
 public abstract class QueryParserTestBase {
-
 	static boolean VERBOSE = true;
 	static final boolean TEST_NIGHTLY = false;
 	static final int RANDOM_MULTIPLIER = 1;
@@ -209,13 +222,6 @@ public abstract class QueryParserTestBase {
 		String s = q.toString(field);
 		if (!s.equals(result)) {
 			Assert.fail("Query /" + query + "/ yielded /" + s + "/, expecting /" + result + "/");
-		}
-	}
-
-	public void assertEscapedQueryEquals(String query, Analyzer a, String result) throws Exception {
-		String escapedQuery = new String(query);
-		if (!escapedQuery.equals(result)) {
-			Assert.fail("Query /" + query + "/ yielded /" + escapedQuery + "/, expecting /" + result + "/");
 		}
 	}
 
@@ -357,6 +363,10 @@ public abstract class QueryParserTestBase {
 
 		PhraseQuery expected = new PhraseQuery("field", "中", "国");
 		QueryParser qp = getParserConfig(analyzer);
+		if (qp instanceof QueryParser) { // Always true, since TestStandardQP
+											// overrides this method
+			((QueryParser) qp).setSplitOnWhitespace(true); // LUCENE-7533
+		}
 		setAutoGeneratePhraseQueries(qp, true);
 		Assert.assertEquals(expected, getQuery("中国", qp));
 	}
@@ -411,7 +421,6 @@ public abstract class QueryParserTestBase {
 
 	}
 
-	@Test
 	public abstract void testDefaultOperator() throws Exception;
 
 	@Test
@@ -732,7 +741,6 @@ public abstract class QueryParserTestBase {
 		assertQueryEquals("a:b\\\\?c", a, "a:b\\\\?c");
 	}
 
-
 	@Test
 	public void testTabNewlineCarriageReturn() throws Exception {
 		assertQueryEqualsDOA("+weltbank +worlbank", null, "+weltbank +worlbank");
@@ -870,7 +878,6 @@ public abstract class QueryParserTestBase {
 	// iw.addDocument(d);
 	// }
 
-	@Test
 	public abstract void testStarParsing() throws Exception;
 
 	@Test
@@ -903,9 +910,9 @@ public abstract class QueryParserTestBase {
 		Assert.assertEquals(escaped2, getQuery("/[a-z]\\*[123]/", qp));
 
 		BooleanQuery.Builder complex = new BooleanQuery.Builder();
-		complex.add(new RegexpQuery(new Term("field", "[a-z]\\/[123]")), BooleanClause.Occur.MUST);
-		complex.add(new TermQuery(new Term("path", "/etc/init.d/")), BooleanClause.Occur.MUST);
-		complex.add(new TermQuery(new Term("field", "/etc/init[.]d/lucene/")), BooleanClause.Occur.SHOULD);
+		complex.add(new RegexpQuery(new Term("field", "[a-z]\\/[123]")), Occur.MUST);
+		complex.add(new TermQuery(new Term("path", "/etc/init.d/")), Occur.MUST);
+		complex.add(new TermQuery(new Term("field", "/etc/init[.]d/lucene/")), Occur.SHOULD);
 		Assert.assertEquals(complex.build(),
 				getQuery("/[a-z]\\/[123]/ AND path:\"/etc/init.d/\" OR \"/etc/init[.]d/lucene/\" ", qp));
 
@@ -922,11 +929,12 @@ public abstract class QueryParserTestBase {
 		Assert.assertEquals(re, getQuery("/boo/", qp));
 
 		Assert.assertEquals(new TermQuery(new Term("field", "/boo/")), getQuery("\"/boo/\"", qp));
-		//Assert.assertEquals(new TermQuery(new Term("field", "/boo/")), getQuery("/boo/", qp));
+		// Assert.assertEquals(new TermQuery(new Term("field", "/boo/")),
+		// getQuery("\\/boo\\/", qp));
 
 		BooleanQuery.Builder two = new BooleanQuery.Builder();
-		two.add(new RegexpQuery(new Term("field", "foo")), BooleanClause.Occur.SHOULD);
-		two.add(new RegexpQuery(new Term("field", "bar")), BooleanClause.Occur.SHOULD);
+		two.add(new RegexpQuery(new Term("field", "foo")), Occur.SHOULD);
+		two.add(new RegexpQuery(new Term("field", "bar")), Occur.SHOULD);
 		Assert.assertEquals(two.build(), getQuery("field:/foo/ field:/bar/", qp));
 		Assert.assertEquals(two.build(), getQuery("/foo/ /bar/", qp));
 	}
@@ -1004,7 +1012,6 @@ public abstract class QueryParserTestBase {
 		BooleanQuery.setMaxClauseCount(originalMaxClauses);
 	}
 
-
 	/** whitespace+lowercase analyzer with synonyms */
 	protected class Analyzer1 extends Analyzer {
 		public Analyzer1() {
@@ -1030,7 +1037,6 @@ public abstract class QueryParserTestBase {
 		}
 	}
 
-	@Test
 	public abstract void testNewFieldQuery() throws Exception;
 
 	/**

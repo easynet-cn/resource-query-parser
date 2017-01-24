@@ -15,7 +15,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermRangeQuery;
 
 /** Token Manager. */
-@SuppressWarnings("unused")public class QueryParserTokenManager implements QueryParserConstants {
+public class QueryParserTokenManager implements QueryParserConstants {
 
   /** Debug output. */
   public  java.io.PrintStream debugStream = System.out;
@@ -914,6 +914,37 @@ private int jjMoveNfa_1(int startState, int curPos)
       catch(java.io.IOException e) { return curPos; }
    }
 }
+
+/** Token literal values. */
+public static final String[] jjstrLiteralImages = {
+"", null, null, null, null, null, null, null, null, null, null, "\53", "\55", 
+null, "\50", "\51", null, "\52", "\136", null, null, null, null, null, null, "\133", 
+"\173", null, null, "\135", "\175", null, null, };
+protected Token jjFillToken()
+{
+   final Token t;
+   final String curTokenImage;
+   final int beginLine;
+   final int endLine;
+   final int beginColumn;
+   final int endColumn;
+   String im = jjstrLiteralImages[jjmatchedKind];
+   curTokenImage = (im == null) ? input_stream.GetImage() : im;
+   beginLine = input_stream.getBeginLine();
+   beginColumn = input_stream.getBeginColumn();
+   endLine = input_stream.getEndLine();
+   endColumn = input_stream.getEndColumn();
+   t = Token.newToken(jjmatchedKind);
+   t.kind = jjmatchedKind;
+   t.image = curTokenImage;
+
+   t.beginLine = beginLine;
+   t.endLine = endLine;
+   t.beginColumn = beginColumn;
+   t.endColumn = endColumn;
+
+   return t;
+}
 static final int[] jjnextStates = {
    38, 40, 41, 18, 19, 21, 43, 44, 46, 47, 32, 23, 24, 26, 27, 25, 
    26, 27, 46, 47, 32, 45, 48, 36, 23, 29, 30, 0, 1, 2, 4, 5, 
@@ -955,35 +986,6 @@ private static final boolean jjCanMove_2(int hiByte, int i1, int i2, long l1, lo
    }
 }
 
-/** Token literal values. */
-public static final String[] jjstrLiteralImages = {
-"", null, null, null, null, null, null, null, null, null, null, "\53", "\55", 
-null, "\50", "\51", null, "\52", "\136", null, null, null, null, null, null, "\133", 
-"\173", null, null, "\135", "\175", null, null, };
-protected Token jjFillToken()
-{
-   final Token t;
-   final String curTokenImage;
-   final int beginLine;
-   final int endLine;
-   final int beginColumn;
-   final int endColumn;
-   String im = jjstrLiteralImages[jjmatchedKind];
-   curTokenImage = (im == null) ? input_stream.GetImage() : im;
-   beginLine = input_stream.getBeginLine();
-   beginColumn = input_stream.getBeginColumn();
-   endLine = input_stream.getEndLine();
-   endColumn = input_stream.getEndColumn();
-   t = Token.newToken(jjmatchedKind, curTokenImage);
-
-   t.beginLine = beginLine;
-   t.endLine = endLine;
-   t.beginColumn = beginColumn;
-   t.endColumn = endColumn;
-
-   return t;
-}
-
 int curLexState = 2;
 int defaultLexState = 2;
 int jjnewStateCnt;
@@ -1004,7 +1006,7 @@ public Token getNextToken()
    {
       curChar = input_stream.BeginToken();
    }
-   catch(java.io.IOException e)
+   catch(Exception e)
    {
       jjmatchedKind = 0;
       jjmatchedPos = -1;
@@ -1071,6 +1073,31 @@ public Token getNextToken()
   }
 }
 
+void SkipLexicalActions(Token matchedToken)
+{
+   switch(jjmatchedKind)
+   {
+      default :
+         break;
+   }
+}
+void MoreLexicalActions()
+{
+   jjimageLen += (lengthOfMatch = jjmatchedPos + 1);
+   switch(jjmatchedKind)
+   {
+      default :
+         break;
+   }
+}
+void TokenLexicalActions(Token matchedToken)
+{
+   switch(jjmatchedKind)
+   {
+      default :
+         break;
+   }
+}
 private void jjCheckNAdd(int state)
 {
    if (jjrounds[state] != jjround)
@@ -1112,9 +1139,14 @@ private void jjCheckNAddStates(int start, int end)
   }
 
   /** Reinitialise parser. */
+  
   public void ReInit(CharStream stream)
   {
-    jjmatchedPos = jjnewStateCnt = 0;
+
+
+    jjmatchedPos =
+    jjnewStateCnt =
+    0;
     curLexState = defaultLexState;
     input_stream = stream;
     ReInitRounds();
@@ -1130,6 +1162,7 @@ private void jjCheckNAddStates(int start, int end)
 
   /** Reinitialise parser. */
   public void ReInit(CharStream stream, int lexState)
+  
   {
     ReInit(stream);
     SwitchTo(lexState);
@@ -1143,6 +1176,7 @@ private void jjCheckNAddStates(int start, int end)
     else
       curLexState = lexState;
   }
+
 
 /** Lexer state names. */
 public static final String[] lexStateNames = {
@@ -1162,11 +1196,19 @@ static final long[] jjtoToken = {
 static final long[] jjtoSkip = {
    0x80L, 
 };
+static final long[] jjtoSpecial = {
+   0x0L, 
+};
+static final long[] jjtoMore = {
+   0x0L, 
+};
     protected CharStream  input_stream;
 
     private final int[] jjrounds = new int[50];
     private final int[] jjstateSet = new int[2 * 50];
-
-    
-    protected char curChar;
+    private final StringBuilder jjimage = new StringBuilder();
+    private StringBuilder image = jjimage;
+    private int jjimageLen;
+    private int lengthOfMatch;
+    protected int curChar;
 }

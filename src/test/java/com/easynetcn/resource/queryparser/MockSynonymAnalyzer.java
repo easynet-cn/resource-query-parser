@@ -18,6 +18,7 @@
 package com.easynetcn.resource.queryparser;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.Analyzer.TokenStreamComponents;
 
 /** adds synonym of "dog" for "dogs", and synonym of "cavy" for "guinea pig". */
 public class MockSynonymAnalyzer extends Analyzer {

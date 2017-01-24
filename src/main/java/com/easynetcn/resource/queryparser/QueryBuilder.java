@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.easynetcn.resource.queryparser;
 
 import java.io.IOException;
@@ -8,6 +24,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CachingTokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
+import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
@@ -15,6 +32,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.DisjunctionMaxQuery;
 import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.GraphQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
@@ -26,6 +44,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.graph.GraphTokenStreamFiniteStrings;
 
 /**
  * Creates queries from the {@link Analyzer} chain.
@@ -45,8 +64,8 @@ import org.apache.lucene.util.BytesRef;
  * customized.
  */
 public class QueryBuilder {
-	private Analyzer analyzer;
-	private boolean enablePositionIncrements = true;
+	protected Analyzer analyzer;
+	protected boolean enablePositionIncrements = true;
 
 	/** Creates a new QueryBuilder using the given analyzer. */
 	public QueryBuilder(Analyzer analyzer) {
@@ -150,16 +169,39 @@ public class QueryBuilder {
 
 		Query query = createFieldQuery(analyzer, BooleanClause.Occur.SHOULD, field, queryText, false, 0);
 		if (query instanceof BooleanQuery) {
-			BooleanQuery bq = (BooleanQuery) query;
-			BooleanQuery.Builder builder = new BooleanQuery.Builder();
-			builder.setDisableCoord(bq.isCoordDisabled());
-			builder.setMinimumNumberShouldMatch((int) (fraction * bq.clauses().size()));
-			for (BooleanClause clause : bq) {
-				builder.add(clause);
+			query = addMinShouldMatchToBoolean((BooleanQuery) query, fraction);
+		} else if (query instanceof GraphQuery && ((GraphQuery) query).hasBoolean()) {
+			// we have a graph query that has at least one boolean sub-query
+			// re-build and set minimum should match on each boolean found
+			List<Query> oldQueries = ((GraphQuery) query).getQueries();
+			Query[] queries = new Query[oldQueries.size()];
+			for (int i = 0; i < queries.length; i++) {
+				Query oldQuery = oldQueries.get(i);
+				if (oldQuery instanceof BooleanQuery) {
+					queries[i] = addMinShouldMatchToBoolean((BooleanQuery) oldQuery, fraction);
+				} else {
+					queries[i] = oldQuery;
+				}
 			}
-			query = builder.build();
+
+			query = new GraphQuery(queries);
 		}
 		return query;
+	}
+
+	/**
+	 * Rebuilds a boolean query and sets a new minimum number should match
+	 * value.
+	 */
+	private BooleanQuery addMinShouldMatchToBoolean(BooleanQuery query, float fraction) {
+		BooleanQuery.Builder builder = new BooleanQuery.Builder();
+		builder.setDisableCoord(query.isCoordDisabled());
+		builder.setMinimumNumberShouldMatch((int) (fraction * query.clauses().size()));
+		for (BooleanClause clause : query) {
+			builder.add(clause);
+		}
+
+		return builder.build();
 	}
 
 	/**
@@ -205,8 +247,10 @@ public class QueryBuilder {
 	 * <p>
 	 * Expert: this is more useful for subclasses such as queryparsers. If using
 	 * this class directly, just use {@link #createBooleanQuery(String, String)}
-	 * and {@link #createPhraseQuery(String, String)}
-	 * 
+	 * and {@link #createPhraseQuery(String, String)}. This is a complex method
+	 * and it is usually not necessary to override it in a subclass; instead,
+	 * override methods like {@link #newBooleanQuery}, etc., if possible.
+	 *
 	 * @param analyzer
 	 *            analyzer used for this query
 	 * @param operator
@@ -221,18 +265,44 @@ public class QueryBuilder {
 	 * @param phraseSlop
 	 *            slop factor for phrase/multiphrase queries
 	 */
-	protected final Query createFieldQuery(Analyzer analyzer, BooleanClause.Occur operator, String field,
-			String queryText, boolean quoted, int phraseSlop) {
+	protected Query createFieldQuery(Analyzer analyzer, BooleanClause.Occur operator, String field, String queryText,
+			boolean quoted, int phraseSlop) {
 		assert operator == BooleanClause.Occur.SHOULD || operator == BooleanClause.Occur.MUST;
 
 		// Use the analyzer to get all the tokens, and then build an appropriate
 		// query based on the analysis chain.
+		try (TokenStream source = analyzer.tokenStream(field, queryText)) {
+			return createFieldQuery(source, operator, field, quoted, phraseSlop);
+		} catch (IOException e) {
+			throw new RuntimeException("Error analyzing query text", e);
+		}
+	}
 
-		try (TokenStream source = analyzer.tokenStream(field, queryText);
-				CachingTokenFilter stream = new CachingTokenFilter(source)) {
+	/**
+	 * Creates a query from a token stream.
+	 *
+	 * @param source
+	 *            the token stream to create the query from
+	 * @param operator
+	 *            default boolean operator used for this query
+	 * @param field
+	 *            field to create queries against
+	 * @param quoted
+	 *            true if phrases should be generated when terms occur at more
+	 *            than one position
+	 * @param phraseSlop
+	 *            slop factor for phrase/multiphrase queries
+	 */
+	protected Query createFieldQuery(TokenStream source, BooleanClause.Occur operator, String field, boolean quoted,
+			int phraseSlop) {
+		assert operator == BooleanClause.Occur.SHOULD || operator == BooleanClause.Occur.MUST;
+
+		// Build an appropriate query based on the analysis chain.
+		try (CachingTokenFilter stream = new CachingTokenFilter(source)) {
 
 			TermToBytesRefAttribute termAtt = stream.getAttribute(TermToBytesRefAttribute.class);
 			PositionIncrementAttribute posIncAtt = stream.addAttribute(PositionIncrementAttribute.class);
+			PositionLengthAttribute posLenAtt = stream.addAttribute(PositionLengthAttribute.class);
 
 			if (termAtt == null) {
 				return null;
@@ -245,6 +315,7 @@ public class QueryBuilder {
 			int numTokens = 0;
 			int positionCount = 0;
 			boolean hasSynonyms = false;
+			boolean isGraph = false;
 
 			stream.reset();
 			while (stream.incrementToken()) {
@@ -254,6 +325,11 @@ public class QueryBuilder {
 					positionCount += positionIncrement;
 				} else {
 					hasSynonyms = true;
+				}
+
+				int positionLength = posLenAtt.getPositionLength();
+				if (!isGraph && positionLength > 1) {
+					isGraph = true;
 				}
 			}
 
@@ -265,6 +341,9 @@ public class QueryBuilder {
 			} else if (numTokens == 1) {
 				// single term
 				return analyzeTerm(field, stream);
+			} else if (isGraph) {
+				// graph
+				return analyzeGraph(stream, operator, field, quoted, phraseSlop);
 			} else if (quoted && positionCount > 1) {
 				// phrase
 				if (hasSynonyms) {
@@ -292,7 +371,7 @@ public class QueryBuilder {
 	/**
 	 * Creates simple term query from the cached tokenstream contents
 	 */
-	private Query analyzeTerm(String field, TokenStream stream) throws IOException {
+	protected Query analyzeTerm(String field, TokenStream stream) throws IOException {
 		TermToBytesRefAttribute termAtt = stream.getAttribute(TermToBytesRefAttribute.class);
 
 		stream.reset();
@@ -306,7 +385,7 @@ public class QueryBuilder {
 	/**
 	 * Creates simple boolean query from the cached tokenstream contents
 	 */
-	private Query analyzeBoolean(String field, TokenStream stream) throws IOException {
+	protected Query analyzeBoolean(String field, TokenStream stream) throws IOException {
 		TermToBytesRefAttribute termAtt = stream.getAttribute(TermToBytesRefAttribute.class);
 
 		stream.reset();
@@ -318,7 +397,7 @@ public class QueryBuilder {
 		return newSynonymQuery(terms.toArray(new Term[terms.size()]));
 	}
 
-	private void add(BooleanQuery.Builder q, List<Term> current, BooleanClause.Occur operator) {
+	protected void add(BooleanQuery.Builder q, List<Term> current, BooleanClause.Occur operator) {
 		if (current.isEmpty()) {
 			return;
 		}
@@ -332,7 +411,7 @@ public class QueryBuilder {
 	/**
 	 * Creates complex boolean query from the cached tokenstream contents
 	 */
-	private Query analyzeMultiBoolean(String field, TokenStream stream, BooleanClause.Occur operator)
+	protected Query analyzeMultiBoolean(String field, TokenStream stream, BooleanClause.Occur operator)
 			throws IOException {
 		BooleanQuery.Builder q = newBooleanQuery();
 		List<Term> currentQuery = new ArrayList<>();
@@ -356,7 +435,7 @@ public class QueryBuilder {
 	/**
 	 * Creates simple phrase query from the cached tokenstream contents
 	 */
-	private Query analyzePhrase(String field, TokenStream stream, int slop) throws IOException {
+	protected Query analyzePhrase(String field, TokenStream stream, int slop) throws IOException {
 		PhraseQuery.Builder builder = new PhraseQuery.Builder();
 		builder.setSlop(slop);
 
@@ -380,7 +459,7 @@ public class QueryBuilder {
 	/**
 	 * Creates complex phrase query from the cached tokenstream contents
 	 */
-	private Query analyzeMultiPhrase(String field, TokenStream stream, int slop) throws IOException {
+	protected Query analyzeMultiPhrase(String field, TokenStream stream, int slop) throws IOException {
 		MultiPhraseQuery.Builder mpqb = newMultiPhraseQueryBuilder();
 		mpqb.setSlop(slop);
 
@@ -412,6 +491,30 @@ public class QueryBuilder {
 			mpqb.add(multiTerms.toArray(new Term[0]));
 		}
 		return mpqb.build();
+	}
+
+	/**
+	 * Creates a query from a graph token stream by extracting all the finite
+	 * strings from the graph and using them to create the query.
+	 */
+	protected Query analyzeGraph(TokenStream source, BooleanClause.Occur operator, String field, boolean quoted,
+			int phraseSlop) throws IOException {
+		source.reset();
+		List<TokenStream> tokenStreams = GraphTokenStreamFiniteStrings.getTokenStreams(source);
+
+		if (tokenStreams.isEmpty()) {
+			return null;
+		}
+
+		List<Query> queries = new ArrayList<>(tokenStreams.size());
+		for (TokenStream ts : tokenStreams) {
+			Query query = createFieldQuery(ts, operator, field, quoted, phraseSlop);
+			if (query != null) {
+				queries.add(query);
+			}
+		}
+
+		return new GraphQuery(queries.toArray(new Query[0]));
 	}
 
 	/**
@@ -481,14 +584,20 @@ public class QueryBuilder {
 			buffer.append(toString((MultiPhraseQuery) query, field));
 		} else if (query instanceof FuzzyQuery) {
 			buffer.append(toString((FuzzyQuery) query, field));
+		} else if (query instanceof RegexpQuery) {
+			buffer.append(toString((RegexpQuery) query, field));
 		} else if (query instanceof TermRangeQuery) {
 			buffer.append(toString((TermRangeQuery) query, field));
 		} else if (query instanceof ConstantScoreQuery) {
 			buffer.append(toString((ConstantScoreQuery) query, field));
+		} else if (query instanceof DisjunctionMaxQuery) {
+			buffer.append(toString((DisjunctionMaxQuery) query, field));
 		} else if (query instanceof MatchAllDocsQuery) {
 			buffer.append(toString((MatchAllDocsQuery) query, field));
 		} else if (query instanceof SynonymQuery) {
 			buffer.append(toString((SynonymQuery) query, field));
+		} else if (query instanceof GraphQuery) {
+			buffer.append(toString((GraphQuery) query, field));
 		} else {
 			buffer.append(query.toString(field));
 		}
@@ -795,6 +904,25 @@ public class QueryBuilder {
 		}
 
 		builder.append(")");
+
+		return builder.toString();
+	}
+
+	protected String toString(GraphQuery graphQuery, String field) {
+		StringBuilder builder = new StringBuilder("(");
+		List<Query> queries = graphQuery.getQueries();
+
+		for (int i = 0; i < queries.size(); i++) {
+			if (i != 0) {
+				builder.append(", ");
+			}
+
+			builder.append(toString(queries.get(i), field));
+		}
+
+		if (queries.size() > 0) {
+			builder.append(", ");
+		}
 
 		return builder.toString();
 	}

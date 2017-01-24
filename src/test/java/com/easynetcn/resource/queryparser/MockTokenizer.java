@@ -318,16 +318,6 @@ public class MockTokenizer extends Tokenizer {
 		}
 	}
 
-	void setReaderTestPoint() {
-		try {
-			if (streamState != State.CLOSE) {
-				fail("setReader() called in wrong state: " + streamState);
-			}
-		} finally {
-			streamState = State.SETREADER;
-		}
-	}
-
 	@Override
 	public void end() throws IOException {
 		try {
@@ -339,7 +329,7 @@ public class MockTokenizer extends Tokenizer {
 			// these tests should disable this check (in general you should
 			// consume the entire stream)
 			if (streamState != State.INCREMENT_FALSE) {
-				fail("end() called before incrementToken() returned false!");
+				fail("end() called in wrong state=" + streamState + "!");
 			}
 		} finally {
 			streamState = State.END;
