@@ -4,7 +4,7 @@
 
 	<groupId>com.easynetcn</groupId>
 	<artifactId>resource.queryparser</artifactId>
-	<version>6.4.1-SNAPSHOT</version>
+	<version>6.4.2-SNAPSHOT</version>
 
 	<name>resource-query-parser</name>
 
