@@ -18,6 +18,7 @@ package com.easynetcn.resource.queryparser;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -32,7 +33,6 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.DisjunctionMaxQuery;
 import org.apache.lucene.search.FuzzyQuery;
-import org.apache.lucene.search.GraphQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.PhraseQuery;
@@ -43,6 +43,10 @@ import org.apache.lucene.search.SynonymQuery;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.search.WildcardQuery;
+import org.apache.lucene.search.spans.SpanNearQuery;
+import org.apache.lucene.search.spans.SpanOrQuery;
+import org.apache.lucene.search.spans.SpanQuery;
+import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.graph.GraphTokenStreamFiniteStrings;
 
@@ -66,6 +70,8 @@ import org.apache.lucene.util.graph.GraphTokenStreamFiniteStrings;
 public class QueryBuilder {
 	protected Analyzer analyzer;
 	protected boolean enablePositionIncrements = true;
+	protected boolean enableGraphQueries = true;
+	protected boolean autoGenerateMultiTermSynonymsPhraseQuery = false;
 
 	/** Creates a new QueryBuilder using the given analyzer. */
 	public QueryBuilder(Analyzer analyzer) {
@@ -162,7 +168,7 @@ public class QueryBuilder {
 			throw new IllegalArgumentException("fraction should be >= 0 and <= 1");
 		}
 
-		// TODO: wierd that BQ equals/rewrite/scorer doesn't handle this?
+		// TODO: weird that BQ equals/rewrite/scorer doesn't handle this?
 		if (fraction == 1) {
 			return createBooleanQuery(field, queryText, BooleanClause.Occur.MUST);
 		}
@@ -170,21 +176,6 @@ public class QueryBuilder {
 		Query query = createFieldQuery(analyzer, BooleanClause.Occur.SHOULD, field, queryText, false, 0);
 		if (query instanceof BooleanQuery) {
 			query = addMinShouldMatchToBoolean((BooleanQuery) query, fraction);
-		} else if (query instanceof GraphQuery && ((GraphQuery) query).hasBoolean()) {
-			// we have a graph query that has at least one boolean sub-query
-			// re-build and set minimum should match on each boolean found
-			List<Query> oldQueries = ((GraphQuery) query).getQueries();
-			Query[] queries = new Query[oldQueries.size()];
-			for (int i = 0; i < queries.length; i++) {
-				Query oldQuery = oldQueries.get(i);
-				if (oldQuery instanceof BooleanQuery) {
-					queries[i] = addMinShouldMatchToBoolean((BooleanQuery) oldQuery, fraction);
-				} else {
-					queries[i] = oldQuery;
-				}
-			}
-
-			query = new GraphQuery(queries);
 		}
 		return query;
 	}
@@ -243,6 +234,24 @@ public class QueryBuilder {
 	}
 
 	/**
+	 * Returns true if phrase query should be automatically generated for multi
+	 * terms synonyms.
+	 * 
+	 * @see #setAutoGenerateMultiTermSynonymsPhraseQuery(boolean)
+	 */
+	public boolean getAutoGenerateMultiTermSynonymsPhraseQuery() {
+		return autoGenerateMultiTermSynonymsPhraseQuery;
+	}
+
+	/**
+	 * Set to <code>true</code> if phrase queries should be automatically
+	 * generated for multi terms synonyms. Default: false.
+	 */
+	public void setAutoGenerateMultiTermSynonymsPhraseQuery(boolean enable) {
+		this.autoGenerateMultiTermSynonymsPhraseQuery = enable;
+	}
+
+	/**
 	 * Creates a query from the analysis chain.
 	 * <p>
 	 * Expert: this is more useful for subclasses such as queryparsers. If using
@@ -276,6 +285,24 @@ public class QueryBuilder {
 		} catch (IOException e) {
 			throw new RuntimeException("Error analyzing query text", e);
 		}
+	}
+
+	/**
+	 * Enable or disable graph TokenStream processing (enabled by default).
+	 *
+	 * @lucene.experimental
+	 */
+	public void setEnableGraphQueries(boolean v) {
+		enableGraphQueries = v;
+	}
+
+	/**
+	 * Returns true if graph TokenStream processing is enabled (default).
+	 *
+	 * @lucene.experimental
+	 */
+	public boolean getEnableGraphQueries() {
+		return enableGraphQueries;
 	}
 
 	/**
@@ -328,7 +355,7 @@ public class QueryBuilder {
 				}
 
 				int positionLength = posLenAtt.getPositionLength();
-				if (!isGraph && positionLength > 1) {
+				if (enableGraphQueries && positionLength > 1) {
 					isGraph = true;
 				}
 			}
@@ -343,7 +370,11 @@ public class QueryBuilder {
 				return analyzeTerm(field, stream);
 			} else if (isGraph) {
 				// graph
-				return analyzeGraph(stream, operator, field, quoted, phraseSlop);
+				if (quoted) {
+					return analyzeGraphPhrase(stream, field, phraseSlop);
+				} else {
+					return analyzeGraphBoolean(field, stream, operator);
+				}
 			} else if (quoted && positionCount > 1) {
 				// phrase
 				if (hasSynonyms) {
@@ -365,6 +396,31 @@ public class QueryBuilder {
 			}
 		} catch (IOException e) {
 			throw new RuntimeException("Error analyzing query text", e);
+		}
+	}
+
+	/**
+	 * Creates a span query from the tokenstream. In the case of a single token,
+	 * a simple <code>SpanTermQuery</code> is returned. When multiple tokens, an
+	 * ordered <code>SpanNearQuery</code> with slop of 0 is returned.
+	 */
+	protected final SpanQuery createSpanQuery(TokenStream in, String field) throws IOException {
+		TermToBytesRefAttribute termAtt = in.getAttribute(TermToBytesRefAttribute.class);
+		if (termAtt == null) {
+			return null;
+		}
+
+		List<SpanTermQuery> terms = new ArrayList<>();
+		while (in.incrementToken()) {
+			terms.add(new SpanTermQuery(new Term(field, termAtt.getBytesRef())));
+		}
+
+		if (terms.isEmpty()) {
+			return null;
+		} else if (terms.size() == 1) {
+			return terms.get(0);
+		} else {
+			return new SpanNearQuery(terms.toArray(new SpanTermQuery[0]), 0, true);
 		}
 	}
 
@@ -494,27 +550,122 @@ public class QueryBuilder {
 	}
 
 	/**
-	 * Creates a query from a graph token stream by extracting all the finite
-	 * strings from the graph and using them to create the query.
+	 * Creates a boolean query from a graph token stream. The articulation
+	 * points of the graph are visited in order and the queries created at each
+	 * point are merged in the returned boolean query.
 	 */
-	protected Query analyzeGraph(TokenStream source, BooleanClause.Occur operator, String field, boolean quoted,
-			int phraseSlop) throws IOException {
+	protected Query analyzeGraphBoolean(String field, TokenStream source, BooleanClause.Occur operator)
+			throws IOException {
 		source.reset();
-		List<TokenStream> tokenStreams = GraphTokenStreamFiniteStrings.getTokenStreams(source);
+		GraphTokenStreamFiniteStrings graph = new GraphTokenStreamFiniteStrings(source);
+		BooleanQuery.Builder builder = new BooleanQuery.Builder();
+		int[] articulationPoints = graph.articulationPoints();
+		int lastState = 0;
+		for (int i = 0; i <= articulationPoints.length; i++) {
+			int start = lastState;
+			int end = -1;
+			if (i < articulationPoints.length) {
+				end = articulationPoints[i];
+			}
+			lastState = end;
+			final Query queryPos;
+			if (graph.hasSidePath(start)) {
+				final Iterator<TokenStream> it = graph.getFiniteStrings(start, end);
+				Iterator<Query> queries = new Iterator<Query>() {
+					@Override
+					public boolean hasNext() {
+						return it.hasNext();
+					}
 
-		if (tokenStreams.isEmpty()) {
-			return null;
+					@Override
+					public Query next() {
+						TokenStream ts = it.next();
+						return createFieldQuery(ts, BooleanClause.Occur.MUST, field,
+								getAutoGenerateMultiTermSynonymsPhraseQuery(), 0);
+					}
+				};
+				queryPos = newGraphSynonymQuery(queries);
+			} else {
+				Term[] terms = graph.getTerms(field, start);
+				assert terms.length > 0;
+				if (terms.length == 1) {
+					queryPos = newTermQuery(terms[0]);
+				} else {
+					queryPos = newSynonymQuery(terms);
+				}
+			}
+			if (queryPos != null) {
+				builder.add(queryPos, operator);
+			}
 		}
+		BooleanQuery bq = builder.build();
+		if (bq.clauses().size() == 1) {
+			return bq.clauses().get(0).getQuery();
+		}
+		return bq;
+	}
 
-		List<Query> queries = new ArrayList<>(tokenStreams.size());
-		for (TokenStream ts : tokenStreams) {
-			Query query = createFieldQuery(ts, operator, field, quoted, phraseSlop);
-			if (query != null) {
-				queries.add(query);
+	/**
+	 * Creates a span near (phrase) query from a graph token stream. The
+	 * articulation points of the graph are visited in order and the queries
+	 * created at each point are merged in the returned near query.
+	 */
+	protected SpanQuery analyzeGraphPhrase(TokenStream source, String field, int phraseSlop) throws IOException {
+		source.reset();
+		GraphTokenStreamFiniteStrings graph = new GraphTokenStreamFiniteStrings(source);
+		List<SpanQuery> clauses = new ArrayList<>();
+		int[] articulationPoints = graph.articulationPoints();
+		int lastState = 0;
+		for (int i = 0; i <= articulationPoints.length; i++) {
+			int start = lastState;
+			int end = -1;
+			if (i < articulationPoints.length) {
+				end = articulationPoints[i];
+			}
+			lastState = end;
+			final SpanQuery queryPos;
+			if (graph.hasSidePath(start)) {
+				List<SpanQuery> queries = new ArrayList<>();
+				Iterator<TokenStream> it = graph.getFiniteStrings(start, end);
+				while (it.hasNext()) {
+					TokenStream ts = it.next();
+					SpanQuery q = createSpanQuery(ts, field);
+					if (q != null) {
+						queries.add(q);
+					}
+				}
+				if (queries.size() > 0) {
+					queryPos = new SpanOrQuery(queries.toArray(new SpanQuery[0]));
+				} else {
+					queryPos = null;
+				}
+			} else {
+				Term[] terms = graph.getTerms(field, start);
+				assert terms.length > 0;
+				if (terms.length == 1) {
+					queryPos = new SpanTermQuery(terms[0]);
+				} else {
+					SpanTermQuery[] orClauses = new SpanTermQuery[terms.length];
+					for (int idx = 0; idx < terms.length; idx++) {
+						orClauses[idx] = new SpanTermQuery(terms[idx]);
+					}
+
+					queryPos = new SpanOrQuery(orClauses);
+				}
+			}
+
+			if (queryPos != null) {
+				clauses.add(queryPos);
 			}
 		}
 
-		return new GraphQuery(queries.toArray(new Query[0]));
+		if (clauses.isEmpty()) {
+			return null;
+		} else if (clauses.size() == 1) {
+			return clauses.get(0);
+		} else {
+			return new SpanNearQuery(clauses.toArray(new SpanQuery[0]), phraseSlop, true);
+		}
 	}
 
 	/**
@@ -539,6 +690,26 @@ public class QueryBuilder {
 	 */
 	protected Query newSynonymQuery(Term terms[]) {
 		return new SynonymQuery(terms);
+	}
+
+	/**
+	 * Builds a new GraphQuery for multi-terms synonyms.
+	 * <p>
+	 * This is intended for subclasses that wish to customize the generated
+	 * queries.
+	 * 
+	 * @return new Query instance
+	 */
+	protected Query newGraphSynonymQuery(Iterator<Query> queries) {
+		BooleanQuery.Builder builder = new BooleanQuery.Builder();
+		while (queries.hasNext()) {
+			builder.add(queries.next(), BooleanClause.Occur.SHOULD);
+		}
+		BooleanQuery bq = builder.build();
+		if (bq.clauses().size() == 1) {
+			return bq.clauses().get(0).getQuery();
+		}
+		return bq;
 	}
 
 	/**
@@ -596,8 +767,6 @@ public class QueryBuilder {
 			buffer.append(toString((MatchAllDocsQuery) query, field));
 		} else if (query instanceof SynonymQuery) {
 			buffer.append(toString((SynonymQuery) query, field));
-		} else if (query instanceof GraphQuery) {
-			buffer.append(toString((GraphQuery) query, field));
 		} else {
 			buffer.append(query.toString(field));
 		}
@@ -904,25 +1073,6 @@ public class QueryBuilder {
 		}
 
 		builder.append(")");
-
-		return builder.toString();
-	}
-
-	protected String toString(GraphQuery graphQuery, String field) {
-		StringBuilder builder = new StringBuilder("(");
-		List<Query> queries = graphQuery.getQueries();
-
-		for (int i = 0; i < queries.size(); i++) {
-			if (i != 0) {
-				builder.append(", ");
-			}
-
-			builder.append(toString(queries.get(i), field));
-		}
-
-		if (queries.size() > 0) {
-			builder.append(", ");
-		}
 
 		return builder.toString();
 	}
